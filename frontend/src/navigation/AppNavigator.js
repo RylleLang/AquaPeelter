@@ -13,15 +13,17 @@ import { DeviceProvider } from '../context/DeviceContext';
 import LoginScreen from '../screens/LoginScreen';
 import DashboardScreen from '../screens/DashboardScreen';
 import AnalyticsScreen from '../screens/AnalyticsScreen';
+import AlertsScreen from '../screens/AlertsScreen';
 import MaintenanceScreen from '../screens/MaintenanceScreen';
 
 const Stack = createNativeStackNavigator();
-const Tab = createBottomTabNavigator();
+const Tab   = createBottomTabNavigator();
 
 const TAB_CONFIG = {
-  Dashboard: { active: 'water', inactive: 'water-outline', label: 'Dashboard' },
-  Analytics: { active: 'stats-chart', inactive: 'stats-chart-outline', label: 'Analytics' },
-  Maintenance: { active: 'construct', inactive: 'construct-outline', label: 'Maintenance' },
+  Dashboard:   { active: 'water',         inactive: 'water-outline',         label: 'Dashboard' },
+  Analytics:   { active: 'stats-chart',   inactive: 'stats-chart-outline',   label: 'Analytics' },
+  Alerts:      { active: 'notifications', inactive: 'notifications-outline', label: 'Alerts' },
+  Maintenance: { active: 'construct',     inactive: 'construct-outline',     label: 'Maintenance' },
 };
 
 const MainTabs = () => {
@@ -38,10 +40,10 @@ const MainTabs = () => {
           paddingBottom: 8,
           paddingTop: 8,
         },
-        tabBarActiveTintColor: C.primary,
+        tabBarActiveTintColor:   C.primary,
         tabBarInactiveTintColor: C.muted,
         tabBarLabel: ({ focused, color }) => (
-          <Text style={{ fontSize: 11, fontWeight: focused ? '700' : '500', color, marginTop: 2 }}>
+          <Text style={{ fontSize: 10, fontWeight: focused ? '700' : '500', color, marginTop: 2 }}>
             {TAB_CONFIG[route.name].label}
           </Text>
         ),
@@ -54,8 +56,9 @@ const MainTabs = () => {
         ),
       })}
     >
-      <Tab.Screen name="Dashboard" component={DashboardScreen} />
-      <Tab.Screen name="Analytics" component={AnalyticsScreen} />
+      <Tab.Screen name="Dashboard"   component={DashboardScreen} />
+      <Tab.Screen name="Analytics"   component={AnalyticsScreen} />
+      <Tab.Screen name="Alerts"      component={AlertsScreen} />
       <Tab.Screen name="Maintenance" component={MaintenanceScreen} />
     </Tab.Navigator>
   );

@@ -4,8 +4,10 @@
     "slug": "aquafilter",
     "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "dark",
-    "assetBundlePatterns": ["**/*"],
+    "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.aquafilter.app"
@@ -14,7 +16,10 @@
       "package": "com.aquafilter.app"
     },
     "extra": {
-      "API_BASE_URL": "http://192.168.1.100:5000/api"
+      "API_BASE_URL": "https://aquafilter.onrender.com/api",
+      "eas": {
+        "projectId": "e3a9d5e9-d39c-4bf5-aeb4-788abfdae9c1"
+      }
     }
   }
 }

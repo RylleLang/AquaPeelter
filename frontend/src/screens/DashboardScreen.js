@@ -221,10 +221,13 @@ export default function DashboardScreen() {
         <Text style={{ fontSize: 13, fontWeight: '700', color: C.muted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
           Live Sensor Data
         </Text>
-        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
           <SensorCard icon="flask" label="pH Level" value={ph} unit="pH" color={phColor} status={phStatus} C={C} />
           <SensorCard icon="eye" label="Turbidity" value={turbidity} unit="NTU" color={turbColor} C={C} />
+        </View>
+        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
           <SensorCard icon="beaker" label="TDS" value={tds} unit="ppm" color={tdsColor} C={C} />
+          <SensorCard icon="water" label="Water Level" value={null} unit="%" color={C.waterLevel} status="Sensor pending" C={C} />
         </View>
 
         {/* ── Filter Health ── */}

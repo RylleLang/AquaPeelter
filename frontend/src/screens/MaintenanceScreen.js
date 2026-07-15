@@ -109,7 +109,7 @@ export default function MaintenanceScreen() {
       const { data } = await maintenanceAPI.create(form);
       setRecords((prev) => [data.data, ...prev]);
       setModalVisible(false);
-      setForm({ type: 'filter_replace', notes: '' });
+      setForm({ type: 'filter_replacement', notes: '' });
     } catch {
       Alert.alert('Error', 'Could not save maintenance record.');
     } finally {
