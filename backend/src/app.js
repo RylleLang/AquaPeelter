@@ -27,13 +27,10 @@ app.set('trust proxy', 1);
 // HTTP security headers
 app.use(helmet());
 
-// CORS — restrict to mobile app origin in production
+// CORS — allow all origins (mobile app + Expo web + ESP32)
 app.use(
   cors({
-    origin:
-      process.env.NODE_ENV === 'production'
-        ? process.env.ALLOWED_ORIGIN
-        : '*',
+    origin: '*',
     methods: ['GET', 'POST', 'PATCH', 'DELETE'],
     allowedHeaders: [
       'Content-Type',
