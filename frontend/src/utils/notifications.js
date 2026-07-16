@@ -35,8 +35,8 @@ export const registerForPushNotifications = async () => {
 
   const { Platform } = require('react-native');
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('aquafilter', {
-      name: 'AquaFilter Alerts',
+    await Notifications.setNotificationChannelAsync('aquapeelter-alerts', {
+      name: 'AquaPeelter Alerts',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#00D4FF',
@@ -63,8 +63,8 @@ export const sendLocalNotification = async (title, body, data = {}) => {
 export const notify = {
   cycleComplete: () => sendLocalNotification('Filtration Complete ✅', 'The laundry wastewater filtration cycle has finished.'),
   filterReplace: (cyclesLeft) => sendLocalNotification('Filter Replacement Required ⚠️', `Banana peel bio-adsorbent filter needs replacement. ${cyclesLeft} cycle(s) remaining.`),
-  deviceOn: () => sendLocalNotification('AquaFilter ON 💧', 'Filtration device is now active.'),
-  deviceOff: () => sendLocalNotification('AquaFilter OFF', 'Filtration device has been switched off.'),
+  deviceOn: () => sendLocalNotification('AquaPeelter ON 💧', 'Filtration device is now active.'),
+  deviceOff: () => sendLocalNotification('AquaPeelter OFF', 'Filtration device has been switched off.'),
   highTurbidity: (ntu) => sendLocalNotification('High Turbidity Alert ⚠️', `Turbidity reading: ${ntu} NTU — exceeds safe threshold.`),
   phAlert: (ph) => sendLocalNotification('pH Level Alert ⚠️', `pH reading: ${ph} — outside acceptable range (6.5–8.5).`),
 };

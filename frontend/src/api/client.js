@@ -32,6 +32,8 @@ export const authAPI = {
   login: (email, password) => client.post('/auth/login', { email, password }),
   register: (name, email, password) => client.post('/auth/register', { name, email, password }),
   me: () => client.get('/auth/me'),
+  savePushToken: (token) => client.post('/auth/push-token', { token }),
+  removePushToken: (token) => client.delete('/auth/push-token', { data: { token } }),
 };
 
 const DEVICE_ID = 'esp32-aquafilter-001';

@@ -69,7 +69,7 @@ export default function LoginScreen() {
           <View style={{ width: 90, height: 90, borderRadius: 28, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
             <Ionicons name="water" size={48} color={C.primary} />
           </View>
-          <Text style={{ fontSize: 34, fontWeight: '800', color: C.text, letterSpacing: -0.5 }}>AquaFilter</Text>
+          <Text style={{ fontSize: 34, fontWeight: '800', color: C.text, letterSpacing: -0.5 }}>AquaPeelter</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
             <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: C.primary }} />
             <Text style={{ fontSize: 13, color: C.muted }}>Laundry Wastewater Filtration System</Text>

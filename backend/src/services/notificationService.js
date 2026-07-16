@@ -30,7 +30,7 @@ const sendPushNotification = async (tokens, { title, body, data = {} }) => {
     body,
     data,
     priority: 'high',
-    channelId: 'aquafilter-alerts',
+    channelId: 'aquapeelter-alerts',
   }));
 
   const chunks = expo.chunkPushNotifications(messages);
