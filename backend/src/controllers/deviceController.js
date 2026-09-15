@@ -96,7 +96,16 @@ exports.startCycle = async (req, res) => {
       });
     }
 
-    const cycleNumber = (state?.totalCycles || 0) + 1;
+    // Number by cycles ever created for this device (aborted ones included) so
+    // numbers are unique. totalCycles only counts completions and would repeat.
+    const cycleNumber = (await FiltrationCycle.countDocuments({ deviceId })) + 1;
+
+    // Self-heal: any cycle left running/paused that is not the active one was
+    // orphaned by an earlier bug — mark it aborted so history stays truthful.
+    await FiltrationCycle.updateMany(
+      { deviceId, status: { $in: ['running', 'paused'] } },
+      { $set: { status: 'aborted', completedAt: new Date() } }
+    );
 
     const cycle = await FiltrationCycle.create({
       deviceId,
@@ -209,6 +218,13 @@ exports.completeCycle = async (req, res) => {
     ]);
 
     await cycle.finalize(preAvgArr[0] || {}, postAvgArr[0] || {});
+
+    // Self-heal orphaned cycles (see startCycle) — everything else still
+    // running/paused on this device is stale once the active cycle completes.
+    await FiltrationCycle.updateMany(
+      { deviceId, _id: { $ne: cycle._id }, status: { $in: ['running', 'paused'] } },
+      { $set: { status: 'aborted', completedAt: new Date() } }
+    );
 
     await DeviceState.upsertState(deviceId, {
       $set: {

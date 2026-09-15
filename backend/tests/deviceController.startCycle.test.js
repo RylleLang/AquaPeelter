@@ -39,6 +39,8 @@ const mockReq = () => ({ params: { deviceId: DEVICE_ID } });
 beforeEach(() => {
   jest.clearAllMocks();
   FiltrationCycle.create.mockResolvedValue({ _id: 'cycle-1' });
+  FiltrationCycle.countDocuments.mockResolvedValue(0);
+  FiltrationCycle.updateMany.mockResolvedValue({ modifiedCount: 0 });
   DeviceState.upsertState.mockResolvedValue({});
   User.find.mockReturnValue({ select: jest.fn().mockResolvedValue([]) });
 });
@@ -66,6 +68,7 @@ describe('startCycle', () => {
       cycleStatus: 'idle',
       totalCycles: 4,
     });
+    FiltrationCycle.countDocuments.mockResolvedValue(4);
     const res = mockRes();
 
     await startCycle(mockReq(), res);
@@ -127,6 +130,7 @@ describe('startCycle', () => {
       activeCycleId: null,
       totalCycles: 3,
     });
+    FiltrationCycle.countDocuments.mockResolvedValue(3);
     const res = mockRes();
 
     await startCycle(mockReq(), res);
@@ -134,6 +138,26 @@ describe('startCycle', () => {
     expect(res.status).toHaveBeenCalledWith(201);
     expect(FiltrationCycle.create).toHaveBeenCalledWith(
       expect.objectContaining({ cycleNumber: 4 })
+    );
+  });
+
+  test('numbers cycles uniquely even when aborted cycles exist', async () => {
+    DeviceState.findOne.mockResolvedValue({ cycleStatus: 'idle', activeCycleId: null, totalCycles: 2 });
+    FiltrationCycle.countDocuments.mockResolvedValue(6); // 2 completed + 4 aborted
+
+    await startCycle(mockReq(), mockRes());
+
+    expect(FiltrationCycle.create).toHaveBeenCalledWith(expect.objectContaining({ cycleNumber: 7 }));
+  });
+
+  test('marks orphaned running/paused cycles as aborted before starting', async () => {
+    DeviceState.findOne.mockResolvedValue({ cycleStatus: 'completed', activeCycleId: null, totalCycles: 1 });
+
+    await startCycle(mockReq(), mockRes());
+
+    expect(FiltrationCycle.updateMany).toHaveBeenCalledWith(
+      { deviceId: DEVICE_ID, status: { $in: ['running', 'paused'] } },
+      { $set: expect.objectContaining({ status: 'aborted' }) }
     );
   });
 
