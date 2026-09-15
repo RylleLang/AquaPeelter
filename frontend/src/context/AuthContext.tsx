@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { storage } from '../utils/storage';
-import { authAPI } from '../api/client';
+import { authAPI, isNetworkError, pingServer } from '../api/client';
 import { registerForPushNotifications } from '../utils/notifications';
 
 // Define a User profile
@@ -11,21 +11,27 @@ export interface User {
 }
 
 // Define payload structure for Authentication and initialize empty container
+export type ServerStatus = 'checking' | 'online' | 'unreachable';
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  serverStatus: ServerStatus;
+  retryConnection: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
 }
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// 
+//
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Define current user profile loaded, or null at start (default)
   const [user, setUser] = useState<User | null>(null);
   // Define state of the app when processing authentication, default to 'loading' at launch
   const [loading, setLoading] = useState<boolean>(true);
+  // Backend reachability — the hosted API sleeps when idle and takes up to a minute to wake
+  const [serverStatus, setServerStatus] = useState<ServerStatus>('checking');
 
   const register = async (name: string, email: string, password: string) => {
     // Register new user and get token string
@@ -43,24 +49,44 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // On app launch, rehydrate session
-  useEffect(() => {
-    const rehydrate = async () => {
-      try {
-        const token = await storage.getItem('authToken');
-        if (token) {
-          const { data } = await authAPI.me();
-          setUser(data.user);
-          syncPushToken();
-        }
-      } catch {
-        await storage.deleteItem('authToken');
-      } finally {
-        setLoading(false);
+  // On app launch, rehydrate session. A network failure must NOT log the user out —
+  // only a rejected token (401) does. The interceptor already clears the token on 401.
+  const rehydrate = async () => {
+    try {
+      const token = await storage.getItem('authToken');
+      if (token) {
+        const { data } = await authAPI.me();
+        setUser(data.user);
+        syncPushToken();
       }
-    };
+      setServerStatus('online');
+    } catch (err) {
+      if (isNetworkError(err)) {
+        setServerStatus('unreachable');
+      } else {
+        setServerStatus('online');
+        await storage.deleteItem('authToken');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     rehydrate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Called by the "Connecting to server" screen: wait for /health, then retry the session.
+  const retryConnection = async () => {
+    setServerStatus('checking');
+    const awake = await pingServer();
+    if (!awake) {
+      setServerStatus('unreachable');
+      return;
+    }
+    await rehydrate();
+  };
 
   const login = async (email: string, password: string) => {
     const { data } = await authAPI.login(email, password);
@@ -80,7 +106,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, register }}>
+    <AuthContext.Provider value={{ user, loading, serverStatus, retryConnection, login, logout, register }}>
       {children}
     </AuthContext.Provider>
   );

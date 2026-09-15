@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
+import { isNetworkError } from '../api/client';
 
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -14,26 +15,26 @@ type Mode = 'login' | 'register';
 export default function LoginScreen() {
   const { login, register } = useAuth();
   const { colors: C, isDark, toggleTheme } = useTheme();
-  
+
   const [mode, setMode] = useState<Mode>('login');
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [showPass, setShowPass] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
 
-  const set = (key: keyof typeof form) => (val: string) => 
+  const set = (key: keyof typeof form) => (val: string) =>
     setForm((f) => ({ ...f, [key]: val }));
 
   const handleSubmit = async () => {
     setError('');
-    
+
     if (!form.email || !form.password) {
       return setError('Email and password are required.');
     }
     if (mode === 'register' && !form.name) {
       return setError('Full name is required.');
     }
-    
+
     setLoading(true);
     try {
       if (mode === 'register') {
@@ -42,7 +43,9 @@ export default function LoginScreen() {
         await login(form.email.trim().toLowerCase(), form.password);
       }
     } catch (err: unknown) {
-      if (axios.isAxiosError(err)) {
+      if (isNetworkError(err)) {
+        setError('Cannot reach the server. It may be waking up — please try again in a moment.');
+      } else if (axios.isAxiosError(err)) {
         setError(err.response?.data?.message || 'Authentication failed. Check credentials.');
       } else {
         setError('An unexpected error occurred.');
