@@ -47,7 +47,7 @@ is the developer and owns all decisions; Claude assists.
 | B9 | Never describe unimplemented features as existing (Bluetooth backup, Guest Mode, water-level sensor, real HMAC signing, offline-detection push, cycle progress %). See §9 and §10. | Panel will test claims. |
 | B10 | Never add a dependency without naming it, its purpose, and getting approval. Never upgrade Expo SDK / React Native / Mongoose major versions. | Stack must be justifiable and stable for the defense demo. |
 | B11 | Never delete or overwrite files you did not create in the current session without confirmation. Never edit `frontend/App.js.backup`, `backend/logs/*`, or anything under `node_modules/`. | Safety. |
-| B12 | The additional working directories under `C:\Users\Rylle\Desktop\integrity-realty\...` are an **unrelated work project**. Never read from or write to them while working on this thesis unless the user explicitly switches context. | Scope isolation. |
+| B12 | Any additional working directories outside this repository (e.g. Rylle's `integrity-realty` folders) are **unrelated projects**. Never read from or write to them while working on this thesis unless the user explicitly switches context. | Scope isolation. |
 | B13 | Never expose the user's email or personal data in code, docs, or commits. | Privacy. |
 
 If the user repeats an instruction that crosses a barrier, that is their decision — say
@@ -270,6 +270,8 @@ offline threshold 30 s; telemetry 5 s; app polling 5 s; JWT 7 d.
 ---
 
 ## 8. Running & deployment
+
+New contributor? Follow [docs/SETUP.md](docs/SETUP.md) first.
 
 - **Backend local:** `cd backend && npm install && npm run dev` (needs `.env`; MongoDB at
   `MONGO_URI`). Health: `GET http://localhost:5000/health`.

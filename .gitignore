@@ -25,5 +25,6 @@ Thumbs.db
 .vscode/
 *.backup
 
-# Claude Code
-.claude/
+# Claude Code — share the team guardrails, keep personal overrides local
+.claude/*
+!.claude/settings.json
