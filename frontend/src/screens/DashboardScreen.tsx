@@ -100,6 +100,18 @@ export default function DashboardScreen() {
         }
     }, [wifiModal]);
 
+    // Start/Pause must surface backend errors (e.g. 409 "already running")
+    // instead of failing silently — the context helpers rethrow on purpose.
+    const handleCycleToggle = async () => {
+        try {
+            await (cycleRunning ? pauseCycle() : startCycle());
+        } catch (err) {
+            const e = err as { response?: { data?: { message?: string } }; message?: string };
+            const message = e.response?.data?.message ?? e.message ?? 'Please try again.';
+            Alert.alert(cycleRunning ? 'Could not pause cycle' : 'Could not start cycle', message);
+        }
+    };
+
     const handleScan = async () => {
         setScanning(true);
         setNetworks([]);
@@ -229,7 +241,7 @@ export default function DashboardScreen() {
 
                     <TouchableOpacity style={{
                             flexDirection: 'row', backgroundColor: C.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 8
-                        }} onPress={cycleRunning ? pauseCycle : startCycle} disabled={loading}>
+                        }} onPress={handleCycleToggle} disabled={loading}>
                         <Ionicons name={cycleRunning ? 'pause-circle' : 'play-circle'} size={22} color="#fff" />
                         <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>
                             {cycleRunning ? 'Pause Cycle' : 'Start Cycle'}

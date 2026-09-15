@@ -30,7 +30,8 @@ is the developer and owns all decisions; Claude assists.
 - If a request is ambiguous in a way that changes the outcome, ask one precise question.
   Otherwise make the routine call and say what you assumed.
 - Report results truthfully. If you did not run something, say so. Never say "tested" for
-  code you only read. Note: `backend/npm test` runs Jest but **no test files exist yet**.
+  code you only read. Backend unit tests live in `backend/tests/` (`npm test`, Jest,
+  models mocked — no database needed); run them after any controller change.
 - Do not spawn subagents, workflows, or background agents unless the user asks.
 
 ### 0.3 Hard barriers — never do these without an explicit instruction in the same message
@@ -176,7 +177,7 @@ All responses are `{ success: boolean, ... }`. `:deviceId` routes use `mergePara
 | GET | `/api/device/:id/state` | JWT + device | DeviceState (404 if never created) |
 | GET | `/api/device/:id/cycles` | JWT + device | Paginated cycles |
 | PATCH | `/api/device/:id/power` | owner/tech | `{isPoweredOn}`; powering off aborts active cycle |
-| POST | `/api/device/:id/cycle/start` | owner/tech | 409 if not powered on or already running |
+| POST | `/api/device/:id/cycle/start` | owner/tech | 409 if already running; implicitly sets `isPoweredOn: true`; returns `{cycleId, cycleNumber, cycleStatus}` |
 | PATCH | `/api/device/:id/cycle/pause` | owner/tech | Toggles running ⇄ paused |
 | POST | `/api/device/:id/cycle/complete` | owner/tech | Finalizes summary, bumps cycle counters, evaluates filter health |
 | GET | `/api/maintenance/:id` | JWT + device | Paginated; `?type=` filter |
@@ -292,8 +293,8 @@ New contributor? Follow [docs/SETUP.md](docs/SETUP.md) first.
    prototype; `X-Device-Id` defaults to `esp32-aquafilter-001` if absent.
 2. "HMAC" is a shared-secret compare, not an HMAC of the payload; config routes use
    non-constant-time `!==`.
-3. `POST /api/device/:id/cycle/start` returns 409 unless `isPoweredOn` is true, but the
-   app has no power toggle — a fresh device must be powered on via API/DB first.
+3. `isPoweredOn` is now set implicitly by `cycle/start` (fixed 2026-09-15); the
+   `PATCH /power` endpoint still exists but the app has no UI for it.
 4. `cycleProgress` never updates; `cycle/complete` exists in the backend but the app
    never calls it (cycles end only via ESP32/manual API).
 5. Alerts are computed on the client; there is no persisted alert history.
@@ -301,12 +302,11 @@ New contributor? Follow [docs/SETUP.md](docs/SETUP.md) first.
 7. `notifyDeviceOffline/Online` unused; no heartbeat watchdog.
 8. `deviceAccess` lets every `owner` see every device; default role is `owner`.
 9. WiFi passwords stored in plaintext in `DeviceConfig`.
-10. Batch telemetry skips per-item field validation. Also: the `SensorReading` TTL was
-    changed 90 → 180 days in code, but MongoDB will not alter an existing TTL index via
-    `createIndex` and prod has `autoIndex: false` — the live Atlas index must be updated
-    manually with `collMod` (see `docs/SETUP.md` § Atlas TTL) or it stays at 90 days.
+10. Batch telemetry skips per-item field validation. (The `SensorReading` TTL index on
+    Atlas was updated to 180 days on 2026-09-15 — if the collection is ever recreated,
+    repeat `docs/SETUP.md` §7.)
 11. `LineChart` uses hardcoded dark-theme colours, not `ThemeContext`.
-12. No automated tests; `jest` / `supertest` are installed but unused.
+12. Test coverage is minimal: only `startCycle` has unit tests; no frontend tests.
 13. `frontend/App.js.backup` is a stale leftover (gitignored by `*.backup`).
 
 ---

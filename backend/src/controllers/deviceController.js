@@ -81,23 +81,17 @@ exports.startCycle = async (req, res) => {
   const { deviceId } = req.params;
 
   try {
+    // May be null for a device that has never reported or been controlled before
     const state = await DeviceState.findOne({ deviceId });
 
-    if (!state?.isPoweredOn) {
-      return res.status(409).json({
-        success: false,
-        message: 'Device must be powered on before starting a cycle',
-      });
-    }
-
-    if (state.cycleStatus === 'running') {
+    if (state?.cycleStatus === 'running') {
       return res.status(409).json({
         success: false,
         message: 'A filtration cycle is already running',
       });
     }
 
-    const cycleNumber = (state.totalCycles || 0) + 1;
+    const cycleNumber = (state?.totalCycles || 0) + 1;
 
     const cycle = await FiltrationCycle.create({
       deviceId,
@@ -106,8 +100,11 @@ exports.startCycle = async (req, res) => {
       status: 'running',
     });
 
+    // Starting a cycle implicitly powers the device on — the mobile app has no
+    // separate power toggle, so the power flag must not gate cycle start.
     await DeviceState.upsertState(deviceId, {
       $set: {
+        isPoweredOn: true,
         cycleStatus: 'running',
         activeCycleId: cycle._id,
       },
@@ -119,7 +116,10 @@ exports.startCycle = async (req, res) => {
     if (tokens.length > 0) notifyCycleStarted(tokens, cycleNumber);
 
     logger.info(`Cycle #${cycleNumber} started on device ${deviceId}`);
-    res.status(201).json({ success: true, data: { cycleId: cycle._id, cycleNumber } });
+    res.status(201).json({
+      success: true,
+      data: { cycleId: cycle._id, cycleNumber, cycleStatus: 'running' },
+    });
   } catch (err) {
     logger.error(`startCycle error: ${err.message}`);
     res.status(500).json({ success: false, message: 'Failed to start filtration cycle' });
