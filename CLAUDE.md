@@ -103,7 +103,7 @@ Software/
         ├── api/client.ts         ← axios instance + all API wrappers
         ├── context/  AuthContext, DeviceContext (5 s polling), ThemeContext
         ├── navigation/AppNavigator.tsx ← Login stack → 4 bottom tabs
-        ├── screens/  Login, Dashboard, Analytics, Cycles, Alerts, Maintenance
+        ├── screens/  Login, Dashboard, Analytics, Cycles, Alerts, Maintenance, ServerWake
         ├── components/LineChart.tsx    ← SVG-free polyline made of Views
         ├── components/CycleSummaryView.tsx ← pre→post per-parameter result rows (shared)
         └── utils/    storage.ts (SecureStore/AsyncStorage), notifications.ts
@@ -228,6 +228,11 @@ https://docs.expo.dev/versions/v57.0.0/ (APIs changed between 54 and 57).
   `storage`, 401 → token cleared. Wrappers: `authAPI`, `sensorAPI`, `deviceAPI`,
   `configAPI`, `maintenanceAPI`.
 - **AuthContext:** login/register/logout, rehydrates via `/auth/me`, syncs push token.
+  Exposes `serverStatus` (`checking` / `online` / `unreachable`) and `retryConnection()`.
+  A **network error never clears the token** — only a 401 does; when unreachable the
+  navigator shows `ServerWakeScreen` (auto-retry every 15 s via `/health`, 60 s timeout)
+  because the Render free tier sleeps when idle. Axios default timeout is 20 s;
+  `isNetworkError()` / `pingServer()` live in `api/client.ts`.
 - **DeviceContext:** polls `getState` + `getLatest` every 5 s; `esp32Online` = last
   post-filter reading < 30 s old. Tracks `cycleStatus` (idle/running/paused/completed);
   `elapsedSeconds` is derived from the active cycle's `startedAt` on every poll (survives
@@ -300,9 +305,9 @@ New contributor? Follow [docs/SETUP.md](docs/SETUP.md) first.
 
 - **Backend local:** `cd backend && npm install && npm run dev` (needs `.env`; MongoDB at
   `MONGO_URI`). Health: `GET http://localhost:5000/health`.
-- **Backend prod:** Render, `https://aquafilter.onrender.com` (free tier → cold starts;
-  the app's 10 s axios timeout can trip on first request). Earlier hosts (Railway, local
-  IP) are gone.
+- **Backend prod:** Render, `https://aquafilter.onrender.com` (free tier → cold starts of
+  30–60 s; the app shows a "Connecting to server" screen and retries). Earlier hosts
+  (Railway, local IP) are gone.
 - **Frontend:** `cd frontend && npm install && npx expo start` (Expo Go for UI — must be the
   Expo Go version matching the project SDK; EAS dev build required for push).
   `eas.json` profiles: development / preview / production. `app.json` slug **must stay

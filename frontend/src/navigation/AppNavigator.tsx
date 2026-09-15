@@ -18,6 +18,7 @@ import AnalyticsScreen from '../screens/AnalyticsScreen';
 import CyclesScreen from '../screens/CyclesScreen';
 import AlertsScreen from '../screens/AlertsScreen';
 import MaintenanceScreen from '../screens/MaintenanceScreen';
+import ServerWakeScreen from '../screens/ServerWakeScreen';
 
 // 1. Define the parameters for each route in your Stacks and Tabs
 export type RootStackParamList = {
@@ -57,7 +58,7 @@ const TAB_CONFIG: TabConfig = {
 
 const MainTabs = () => {
   const { colors: C } = useTheme();
-  
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -78,10 +79,10 @@ const MainTabs = () => {
           </Text>
         ),
         tabBarIcon: ({ focused, color }) => {
-          const iconName = focused 
-            ? TAB_CONFIG[route.name as TabName].active 
+          const iconName = focused
+            ? TAB_CONFIG[route.name as TabName].active
             : TAB_CONFIG[route.name as TabName].inactive;
-            
+
           return (
             <Ionicons
               name={iconName}
@@ -102,7 +103,7 @@ const MainTabs = () => {
 };
 
 export default function AppNavigator() {
-  const { user, loading } = useAuth();
+  const { user, loading, serverStatus } = useAuth();
   const { colors: C, isDark } = useTheme();
 
   if (loading) {
@@ -111,6 +112,12 @@ export default function AppNavigator() {
         <ActivityIndicator size="large" color={C.primary} />
       </View>
     );
+  }
+
+  // Backend asleep/unreachable: hold the user here with auto-retry instead of
+  // dropping them to Login with a misleading "check credentials" error.
+  if (serverStatus === 'unreachable') {
+    return <ServerWakeScreen />;
   }
 
   return (
