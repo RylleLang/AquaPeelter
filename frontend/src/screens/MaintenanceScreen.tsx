@@ -7,9 +7,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { maintenanceAPI } from '../api/client';
 import { useDevice } from '../context/DeviceContext';
-import { useTheme } from '../context/ThemeContext';
+import { ThemeColors, useTheme } from '../context/ThemeContext';
+import { MaintenanceForm, MaintenanceRecord, MaintenanceType } from '../types';
 
-const TYPE_ICONS = {
+const TYPE_ICONS: Record<MaintenanceType, React.ComponentProps<typeof Ionicons>['name']> = {
   filter_replacement: 'leaf',
   filter_cleaning: 'sparkles',
   system_inspection: 'search',
@@ -17,15 +18,24 @@ const TYPE_ICONS = {
   other: 'ellipsis-horizontal',
 };
 
-const TYPES = ['filter_replacement', 'filter_cleaning', 'system_inspection', 'repair', 'other'];
+interface RecordCardProps {
+  record: MaintenanceRecord;
+  onAck: (id: string) => void;
+  C: ThemeColors;
+}
 
-const RecordCard = ({ record, onAck, C }) => {
-  const TYPE_COLORS = {
-    filter_replacement: C.warning, filter_cleaning: C.primary,
-    system_inspection: C.success, repair: C.danger, other: C.muted,
+function RecordCard({ record, onAck, C }: RecordCardProps) {
+  const TYPE_COLORS: Record<string, string> = {
+    filter_replacement: C.warning, 
+    filter_cleaning: C.primary,
+    system_inspection: C.success, 
+    repair: C.danger, 
+    other: C.muted,
   };
+  
   const color = TYPE_COLORS[record.type] || C.muted;
   const icon = TYPE_ICONS[record.type] || 'ellipsis-horizontal';
+  
   const dateStr = new Date(record.createdAt).toLocaleDateString('en-PH', {
     year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
   });
@@ -59,24 +69,33 @@ const RecordCard = ({ record, onAck, C }) => {
           </View>
         )}
       </View>
-      <Text style={{ color: C.text, fontSize: 14, lineHeight: 21 }}>{record.notes}</Text>
+      {record.title ? <Text style={{ color: C.text, fontSize: 15, fontWeight: '700', marginBottom: 4 }}>{record.title}</Text> : null}
+      <Text style={{ color: C.text, fontSize: 14, lineHeight: 21 }}>{record.body}</Text>
       <Text style={{ color: C.muted, fontSize: 11, marginTop: 10 }}>{dateStr}</Text>
     </View>
   );
-};
+}
 
 export default function MaintenanceScreen() {
   const { deviceState } = useDevice();
   const { colors: C } = useTheme();
-  const [records, setRecords] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [form, setForm] = useState({ type: 'filter_replacement', notes: '' });
-  const [submitting, setSubmitting] = useState(false);
+  
+  const [records, setRecords] = useState<MaintenanceRecord[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [modalVisible, setModalVisible] = useState<boolean>(false);
+  const [form, setForm] = useState<MaintenanceForm>({
+      type: "filter_replacement",
+      title: "",
+      body: "",
+  });
+  const [submitting, setSubmitting] = useState<boolean>(false);
 
-  const TYPE_COLORS = {
-    filter_replacement: C.warning, filter_cleaning: C.primary,
-    system_inspection: C.success, repair: C.danger, other: C.muted,
+  const TYPE_COLORS: Record<string, string> = {
+      filter_replacement: C.warning, 
+      filter_cleaning: C.primary,
+      system_inspection: C.success, 
+      repair: C.danger, 
+      other: C.muted,
   };
 
   const fetchRecords = useCallback(async () => {
@@ -84,16 +103,19 @@ export default function MaintenanceScreen() {
     try {
       const { data } = await maintenanceAPI.getAll();
       setRecords(data.data || []);
-    } catch (err) {
-      console.warn('Maintenance fetch error:', err.message);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      console.warn('Maintenance fetch error:', errorMessage);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { fetchRecords(); }, [fetchRecords]);
+  useEffect(() => { 
+    fetchRecords(); 
+  }, [fetchRecords]);
 
-  const handleAck = async (id) => {
+  const handleAck = async (id: string) => {
     try {
       await maintenanceAPI.acknowledge(id);
       setRecords((prev) => prev.map((r) => r._id === id ? { ...r, acknowledged: true } : r));
@@ -103,13 +125,14 @@ export default function MaintenanceScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!form.notes.trim()) return Alert.alert('Validation', 'Please enter maintenance notes.');
+    if (!form.body.trim()) return Alert.alert('Validation', 'Please enter maintenance details.');
+    
     setSubmitting(true);
     try {
       const { data } = await maintenanceAPI.create(form);
       setRecords((prev) => [data.data, ...prev]);
       setModalVisible(false);
-      setForm({ type: 'filter_replacement', notes: '' });
+      setForm({ type: 'filter_replacement', title: '', body: '' });
     } catch {
       Alert.alert('Error', 'Could not save maintenance record.');
     } finally {
@@ -220,7 +243,7 @@ export default function MaintenanceScreen() {
 
             <Text style={{ color: C.muted, fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>Type</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
-              {TYPES.map((t) => (
+              {MaintenanceType.list.map((t) => (
                 <TouchableOpacity
                   key={t}
                   style={{
@@ -238,8 +261,21 @@ export default function MaintenanceScreen() {
                 </TouchableOpacity>
               ))}
             </View>
+            
+            <Text style={{ color: C.muted, fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>Title (Optional)</Text>
+            <TextInput
+              style={{
+                backgroundColor: C.inputBg, borderWidth: 1, borderColor: C.border,
+                borderRadius: 14, padding: 14, color: C.text, fontSize: 14,
+                marginBottom: 20,
+              }}
+              placeholder="E.g. Cleaned intake valve"
+              placeholderTextColor={C.muted}
+              value={form.title}
+              onChangeText={(v) => setForm((f) => ({ ...f, title: v }))}
+            />
 
-            <Text style={{ color: C.muted, fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>Notes</Text>
+            <Text style={{ color: C.muted, fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>Details</Text>
             <TextInput
               style={{
                 backgroundColor: C.inputBg, borderWidth: 1, borderColor: C.border,
@@ -248,8 +284,8 @@ export default function MaintenanceScreen() {
               }}
               placeholder="Describe the maintenance performed..."
               placeholderTextColor={C.muted}
-              value={form.notes}
-              onChangeText={(v) => setForm((f) => ({ ...f, notes: v }))}
+              value={form.body}
+              onChangeText={(v) => setForm((f) => ({ ...f, body: v }))}
               multiline
               numberOfLines={4}
             />

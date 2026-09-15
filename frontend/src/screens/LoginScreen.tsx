@@ -1,27 +1,39 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import axios from 'axios';
+
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+
+type Mode = 'login' | 'register';
 
 export default function LoginScreen() {
   const { login, register } = useAuth();
   const { colors: C, isDark, toggleTheme } = useTheme();
-  const [mode, setMode] = useState('login');
+  
+  const [mode, setMode] = useState<Mode>('login');
   const [form, setForm] = useState({ name: '', email: '', password: '' });
-  const [showPass, setShowPass] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [showPass, setShowPass] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>('');
 
-  const set = (key) => (val) => setForm((f) => ({ ...f, [key]: val }));
+  const set = (key: keyof typeof form) => (val: string) => 
+    setForm((f) => ({ ...f, [key]: val }));
 
   const handleSubmit = async () => {
     setError('');
-    if (!form.email || !form.password) return setError('Email and password are required.');
-    if (mode === 'register' && !form.name) return setError('Full name is required.');
+    
+    if (!form.email || !form.password) {
+      return setError('Email and password are required.');
+    }
+    if (mode === 'register' && !form.name) {
+      return setError('Full name is required.');
+    }
+    
     setLoading(true);
     try {
       if (mode === 'register') {
@@ -29,8 +41,12 @@ export default function LoginScreen() {
       } else {
         await login(form.email.trim().toLowerCase(), form.password);
       }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Authentication failed. Check credentials.');
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        setError(err.response?.data?.message || 'Authentication failed. Check credentials.');
+      } else {
+        setError('An unexpected error occurred.');
+      }
     } finally {
       setLoading(false);
     }
@@ -82,7 +98,7 @@ export default function LoginScreen() {
 
           {/* Tab switcher */}
           <View style={{ flexDirection: 'row', backgroundColor: C.inputBg, borderRadius: 12, padding: 4, marginBottom: 24 }}>
-            {['login', 'register'].map((m) => (
+            {(['login', 'register'] as Mode[]).map((m) => (
               <TouchableOpacity
                 key={m}
                 style={{ flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', backgroundColor: mode === m ? C.primary : 'transparent' }}

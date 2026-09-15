@@ -58,7 +58,7 @@ It requires secrets that are **not in the repository**:
    through GitHub, chat, email, or a shared screen.
 3. `cd backend && npm run dev` → `http://localhost:5000/health` should return `ok`.
 4. To point the app at your local backend, temporarily change `BASE_URL` in
-   `frontend/src/api/client.js` to `http://<your-laptop-ip>:5000/api` — and **change
+   `frontend/src/api/client.ts` to `http://<your-laptop-ip>:5000/api` — and **change
    it back before committing**.
 
 Never commit `backend/.env`. It is gitignored; keep it that way.

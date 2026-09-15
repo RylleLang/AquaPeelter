@@ -5,26 +5,57 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../context/ThemeContext';
+import { ThemeColors, useTheme } from '../context/ThemeContext';
 import { useDevice } from '../context/DeviceContext';
 import { sensorAPI, maintenanceAPI } from '../api/client';
 
-const FILTERS = ['All', 'Sensors', 'Maintenance', 'Cycle'];
+type FilterType = 'All' | 'Sensors' | 'Maintenance' | 'Cycle';
+const FILTERS: FilterType[] = ['All', 'Sensors', 'Maintenance', 'Cycle'];
 
-// Derive alerts from sensor readings
-function deriveAlerts(readings, maintenance, deviceState) {
-  const alerts = [];
+export interface Alert {
+  id: string;
+  type: 'sensor' | 'maintenance' | 'cycle';
+  severity: 'warning' | 'danger';
+  icon: string;
+  title: string;
+  desc: string;
+  time: string;
+  color: string;
+}
+
+interface Reading {
+  ph: number | null;
+  turbidity: number | null;
+  tds: number | null;
+  createdAt?: string;
+  timestamp?: string;
+}
+
+interface MaintenanceTask {
+  _id: string;
+  type: string;
+  notes: string;
+  acknowledged: boolean;
+  createdAt: string;
+}
+
+function deriveAlerts(
+  readings: Reading[], 
+  maintenance: MaintenanceTask[], 
+  deviceState: { filterHealthPct: number }
+): Alert[] {
+  const alerts: Alert[] = [];
 
   readings.forEach((r) => {
-    const t = r.createdAt || r.timestamp;
+    const t = r.createdAt || r.timestamp || new Date().toISOString();
     if (r.ph !== null && r.ph < 6.5)
-      alerts.push({ id: `ph-low-${t}`, type: 'sensor', severity: 'warning', icon: 'flask', title: 'Low pH Level', desc: `pH dropped to ${r.ph?.toFixed(2)} — below safe range (6.5–8.5)`, time: t, color: '#7C3AED' });
+      alerts.push({ id: `ph-low-${t}`, type: 'sensor', severity: 'warning', icon: 'flask', title: 'Low pH Level', desc: `pH dropped to ${r.ph.toFixed(2)} — below safe range (6.5–8.5)`, time: t, color: '#7C3AED' });
     if (r.ph !== null && r.ph > 8.5)
-      alerts.push({ id: `ph-high-${t}`, type: 'sensor', severity: 'warning', icon: 'flask', title: 'High pH Level', desc: `pH rose to ${r.ph?.toFixed(2)} — above safe range (6.5–8.5)`, time: t, color: '#7C3AED' });
+      alerts.push({ id: `ph-high-${t}`, type: 'sensor', severity: 'warning', icon: 'flask', title: 'High pH Level', desc: `pH rose to ${r.ph.toFixed(2)} — above safe range (6.5–8.5)`, time: t, color: '#7C3AED' });
     if (r.turbidity !== null && r.turbidity > 100)
-      alerts.push({ id: `turb-${t}`, type: 'sensor', severity: 'danger', icon: 'eye', title: 'High Turbidity', desc: `Turbidity at ${r.turbidity?.toFixed(1)} NTU — exceeds 100 NTU limit`, time: t, color: '#0284C7' });
+      alerts.push({ id: `turb-${t}`, type: 'sensor', severity: 'danger', icon: 'eye', title: 'High Turbidity', desc: `Turbidity at ${r.turbidity.toFixed(1)} NTU — exceeds 100 NTU limit`, time: t, color: '#0284C7' });
     if (r.tds !== null && r.tds > 500)
-      alerts.push({ id: `tds-${t}`, type: 'sensor', severity: r.tds > 1000 ? 'danger' : 'warning', icon: 'beaker', title: r.tds > 1000 ? 'Critical TDS Level' : 'Elevated TDS', desc: `TDS at ${r.tds?.toFixed(0)} ppm — safe limit is 500 ppm`, time: t, color: '#0891B2' });
+      alerts.push({ id: `tds-${t}`, type: 'sensor', severity: r.tds > 1000 ? 'danger' : 'warning', icon: 'beaker', title: r.tds > 1000 ? 'Critical TDS Level' : 'Elevated TDS', desc: `TDS at ${r.tds.toFixed(0)} ppm — safe limit is 500 ppm`, time: t, color: '#0891B2' });
   });
 
   maintenance.forEach((m) => {
@@ -37,16 +68,26 @@ function deriveAlerts(readings, maintenance, deviceState) {
   else if (deviceState.filterHealthPct <= 50)
     alerts.push({ id: 'filter-low', type: 'maintenance', severity: 'warning', icon: 'leaf', title: 'Filter Health Low', desc: `Bio-filter at ${deviceState.filterHealthPct}% — plan replacement soon`, time: new Date().toISOString(), color: '#D97706' });
 
-  return alerts.sort((a, b) => new Date(b.time) - new Date(a.time));
+  // Strict TS requires .getTime() for mathematical date subtraction
+  return alerts.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
 }
 
-const AlertCard = ({ alert, C }) => {
+interface AlertCardProps {
+  alert: Alert;
+  C: ThemeColors;
+}
+
+function AlertCard({ alert, C }: AlertCardProps) {
   const timeStr = new Date(alert.time).toLocaleString('en-PH', {
     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
   });
+  
   const bgColor  = alert.severity === 'danger' ? C.danger + '12' : C.warning + '12';
   const bdColor  = alert.severity === 'danger' ? C.danger + '40' : C.warning + '40';
   const lblColor = alert.severity === 'danger' ? C.danger : C.warning;
+  
+  // Cast constructed string to the strict Ionicons definition map
+  const iconName = `${alert.icon}-outline` as React.ComponentProps<typeof Ionicons>['name'];
 
   return (
     <View style={{
@@ -56,7 +97,7 @@ const AlertCard = ({ alert, C }) => {
     }}>
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
         <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: bgColor, borderWidth: 1, borderColor: bdColor, alignItems: 'center', justifyContent: 'center', marginTop: 2 }}>
-          <Ionicons name={alert.icon + '-outline'} size={18} color={lblColor} />
+          <Ionicons name={iconName} size={18} color={lblColor} />
         </View>
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -76,21 +117,23 @@ const AlertCard = ({ alert, C }) => {
       </View>
     </View>
   );
-};
+}
 
 export default function AlertsScreen() {
   const { colors: C } = useTheme();
   const { deviceState, esp32Online } = useDevice();
-  const [activeFilter, setActiveFilter] = useState('All');
-  const [alerts, setAlerts] = useState([]);
-  const [loading, setLoading]     = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+  
+  const [activeFilter, setActiveFilter] = useState<FilterType>('All');
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
   const fetchAlerts = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
+    
     try {
-      const endDate   = new Date().toISOString();
+      const endDate = new Date().toISOString();
       const startDate = new Date(Date.now() - 86400000).toISOString(); // last 24h
 
       const [histRes, maintRes] = await Promise.all([
@@ -98,24 +141,27 @@ export default function AlertsScreen() {
         maintenanceAPI.getAll(),
       ]);
 
-      const readings    = histRes.data?.data || [];
+      const readings = histRes.data?.data || [];
       const maintenance = maintRes.data?.data || [];
       setAlerts(deriveAlerts(readings, maintenance, deviceState));
-    } catch (err) {
-      console.warn('Alerts fetch error:', err.message);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      console.warn('Alerts fetch error:', errorMessage);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, [deviceState]);
 
-  useEffect(() => { fetchAlerts(); }, []);
+  useEffect(() => { 
+    fetchAlerts(); 
+  }, [fetchAlerts]);
 
   const filtered = alerts.filter((a) => {
-    if (activeFilter === 'All')         return true;
-    if (activeFilter === 'Sensors')     return a.type === 'sensor';
+    if (activeFilter === 'All') return true;
+    if (activeFilter === 'Sensors') return a.type === 'sensor';
     if (activeFilter === 'Maintenance') return a.type === 'maintenance';
-    if (activeFilter === 'Cycle')       return a.type === 'cycle';
+    if (activeFilter === 'Cycle') return a.type === 'cycle';
     return true;
   });
 
@@ -126,7 +172,13 @@ export default function AlertsScreen() {
       <ScrollView
         contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchAlerts(true)} tintColor={C.primary} />}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={() => fetchAlerts(true)} 
+            tintColor={C.primary} 
+          />
+        }
       >
         {/* Header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>

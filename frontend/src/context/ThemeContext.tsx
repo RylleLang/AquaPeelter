@@ -1,8 +1,35 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+export type ThemeColors = {
+  isDark: boolean;
+  bg: string;
+  card: string;
+  cardAlt: string;
+  primary: string;
+  primaryDeep: string;
+  text: string;
+  muted: string;
+  border: string;
+  inputBg: string;
+  success: string;
+  warning: string;
+  danger: string;
+  ph: string;
+  turbidity: string;
+  tds: string;
+  waterLevel: string;
+  tabBar: string;
+  tabBorder: string;
+  modalOverlay: string;
+  alertBg: string;
+  filterBannerBg: string;
+  filterBannerBorder: string;
+  ackBtnBg: string;
+};
+
 // ── A2: Environmental Green & White ──────────────────────────────────────────
-const LIGHT = {
+const LIGHT: ThemeColors = {
   isDark: false,
   bg:                '#F8FAFC',
   card:              '#FFFFFF',
@@ -29,7 +56,7 @@ const LIGHT = {
   ackBtnBg:          '#F0FDF4',
 };
 
-const DARK = {
+const DARK: ThemeColors = {
   isDark: true,
   bg:                '#0B1A10',
   card:              '#122819',
@@ -56,10 +83,16 @@ const DARK = {
   ackBtnBg:          '#0A1A10',
 };
 
-const ThemeContext = createContext(null);
+interface ThemeContextType {
+  colors: ThemeColors;
+  isDark: boolean;
+  toggleTheme: () => void;
+}
 
-export const ThemeProvider = ({ children }) => {
-  const [isDark, setIsDark] = useState(false); // light mode default for thesis demo
+const ThemeContext = createContext<ThemeContextType | null>(null);
+
+export const ThemeProvider = ({ children }: { children: ReactNode }) => {
+  const [isDark, setIsDark] = useState<boolean>(false); // light mode default for thesis demo
 
   useEffect(() => {
     AsyncStorage.getItem('theme').then((saved) => {
@@ -82,4 +115,8 @@ export const ThemeProvider = ({ children }) => {
   );
 };
 
-export const useTheme = () => useContext(ThemeContext);
+export const useTheme = () => {
+  const context = useContext(ThemeContext);
+  if (!context) throw new Error('useTheme must be used within a ThemeProvider');
+  return context;
+};
