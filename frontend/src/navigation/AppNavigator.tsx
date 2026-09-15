@@ -15,6 +15,7 @@ import { DeviceProvider } from '../context/DeviceContext';
 import LoginScreen from '../screens/LoginScreen';
 import DashboardScreen from '../screens/DashboardScreen';
 import AnalyticsScreen from '../screens/AnalyticsScreen';
+import CyclesScreen from '../screens/CyclesScreen';
 import AlertsScreen from '../screens/AlertsScreen';
 import MaintenanceScreen from '../screens/MaintenanceScreen';
 
@@ -27,6 +28,7 @@ export type RootStackParamList = {
 export type MainTabParamList = {
   Dashboard: undefined;
   Analytics: undefined;
+  Cycles: undefined;
   Alerts: undefined;
   Maintenance: undefined;
 };
@@ -48,6 +50,7 @@ type TabConfig = {
 const TAB_CONFIG: TabConfig = {
   Dashboard:   { active: 'water',         inactive: 'water-outline',         label: 'Dashboard' },
   Analytics:   { active: 'stats-chart',   inactive: 'stats-chart-outline',   label: 'Analytics' },
+  Cycles:      { active: 'repeat',        inactive: 'repeat-outline',        label: 'Cycles' },
   Alerts:      { active: 'notifications', inactive: 'notifications-outline', label: 'Alerts' },
   Maintenance: { active: 'construct',     inactive: 'construct-outline',     label: 'Maintenance' },
 };
@@ -91,6 +94,7 @@ const MainTabs = () => {
     >
       <Tab.Screen name="Dashboard"   component={DashboardScreen} />
       <Tab.Screen name="Analytics"   component={AnalyticsScreen} />
+      <Tab.Screen name="Cycles"      component={CyclesScreen} />
       <Tab.Screen name="Alerts"      component={AlertsScreen} />
       <Tab.Screen name="Maintenance" component={MaintenanceScreen} />
     </Tab.Navigator>

@@ -5,7 +5,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { sensorAPI } from '../api/client';
+import { sensorAPI, SamplePoint } from '../api/client';
+import CycleSummaryView from '../components/CycleSummaryView';
+import { CompareResult, CycleSummary } from '../types';
 import { ThemeColors, useTheme } from '../context/ThemeContext';
 import LineChart from '../components/LineChart';
 
@@ -52,17 +54,19 @@ function StatBadge({ label, value, unit, color, C }: StatBadgeProps) {
 
 export default function AnalyticsScreen() {
   const { colors: C } = useTheme();
-  
+
   const [range, setRange] = useState<Range>('24h');
   const [readings, setReadings] = useState<Reading[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [compare, setCompare] = useState<CompareResult | null>(null);
+  const [samplePoint, setSamplePoint] = useState<SamplePoint>('post-filter');
   const [loading, setLoading] = useState<boolean>(false);
 
-  const rangeToMs: Record<Range, number> = { 
-    '1h': 3600000, 
-    '6h': 21600000, 
-    '24h': 86400000, 
-    '7d': 604800000 
+  const rangeToMs: Record<Range, number> = {
+    '1h': 3600000,
+    '6h': 21600000,
+    '24h': 86400000,
+    '7d': 604800000
   };
 
   const fetchData = useCallback(async () => {
@@ -71,29 +75,44 @@ export default function AnalyticsScreen() {
       const endDate = new Date().toISOString();
       const startDate = new Date(Date.now() - (rangeToMs[range] || 86400000)).toISOString();
 
-      const [histRes, statRes] = await Promise.all([
-        sensorAPI.getHistory({ startDate, endDate, limit: 50 }),
-        sensorAPI.getStats({ startDate, endDate }),
+      const [histRes, statRes, cmpRes] = await Promise.all([
+        sensorAPI.getHistory({ startDate, endDate, limit: 50, samplePoint }),
+        sensorAPI.getStats({ startDate, endDate, samplePoint }),
+        sensorAPI.compare({ startDate, endDate }),
       ]);
-      
+
       setReadings(histRes.data?.data || []);
       setStats(statRes.data?.data);
+      setCompare(cmpRes.data?.data ?? null);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       console.warn('Analytics fetch error:', errorMessage);
     } finally {
       setLoading(false);
     }
-  }, [range]);
+  }, [range, samplePoint]);
 
-  useEffect(() => { 
-    fetchData(); 
+  useEffect(() => {
+    fetchData();
   }, [fetchData]);
 
+  // Map the /compare response onto the cycle-summary shape so one component renders both
+  const performance: CycleSummary | null = compare
+    ? {
+        preFilter: compare.preFilter,
+        postFilter: compare.postFilter,
+        phImprovement: compare.improvement.ph,
+        turbidityReduction: compare.improvement.turbidity,
+        tdsReduction: compare.improvement.tds,
+      }
+    : null;
+  const hasPerformance =
+    !!performance && (performance.preFilter?.readingCount ?? 0) > 0 && (performance.postFilter?.readingCount ?? 0) > 0;
+
   const toChartData = (field: SensorField) =>
-    [...readings].reverse().map((r) => ({ 
-      value: r[field] ?? 0, 
-      timestamp: r.createdAt || r.timestamp || '' 
+    [...readings].reverse().map((r) => ({
+      value: r[field] ?? 0,
+      timestamp: r.createdAt || r.timestamp || ''
     }));
 
   const card = {
@@ -136,6 +155,30 @@ export default function AnalyticsScreen() {
           ))}
         </View>
 
+        {/* Sample point: which side of the filter the charts show */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 18 }}>
+          {(['post-filter', 'pre-filter'] as SamplePoint[]).map((sp) => {
+            const active = samplePoint === sp;
+            return (
+              <TouchableOpacity
+                key={sp}
+                onPress={() => setSamplePoint(sp)}
+                style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 6,
+                  paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
+                  backgroundColor: active ? C.primary + '20' : C.card,
+                  borderWidth: 1, borderColor: active ? C.primary : C.border,
+                }}
+              >
+                <Ionicons name={sp === 'post-filter' ? 'water' : 'water-outline'} size={14} color={active ? C.primary : C.muted} />
+                <Text style={{ fontSize: 12, fontWeight: '700', color: active ? C.primary : C.muted }}>
+                  {sp === 'post-filter' ? 'Post-filter (output)' : 'Pre-filter (input)'}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
         {loading ? (
           <View style={{ alignItems: 'center', paddingVertical: 80, gap: 14 }}>
             <ActivityIndicator color={C.primary} size="large" />
@@ -143,11 +186,31 @@ export default function AnalyticsScreen() {
           </View>
         ) : (
           <>
+            {/* Filter performance: pre vs post over the selected range */}
+            <View style={card}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
+                <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: C.success + '20', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="leaf" size={16} color={C.success} />
+                </View>
+                <View style={{ marginLeft: 10, flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: C.text }}>Filter Performance · {range}</Text>
+                  <Text style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>Average input → output, % removed by the bio-filter</Text>
+                </View>
+              </View>
+              {hasPerformance && performance ? (
+                <CycleSummaryView summary={performance} C={C} />
+              ) : (
+                <Text style={{ color: C.muted, fontSize: 12, fontStyle: 'italic' }}>
+                  Needs both pre-filter and post-filter readings in this range.
+                </Text>
+              )}
+            </View>
+
             {/* Stats Summary */}
             {stats && (
               <View style={card}>
                 <Text style={{ fontSize: 12, fontWeight: '700', color: C.muted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 14 }}>
-                  Summary · {range}
+                  {samplePoint === 'post-filter' ? 'Output' : 'Input'} averages · {range}
                 </Text>
                 <View style={{ flexDirection: 'row', gap: 10 }}>
                   <StatBadge label="Avg pH" value={stats.avgPh?.toFixed(2)} unit="pH" color={C.ph} C={C} />

@@ -103,8 +103,9 @@ Software/
         ├── api/client.ts         ← axios instance + all API wrappers
         ├── context/  AuthContext, DeviceContext (5 s polling), ThemeContext
         ├── navigation/AppNavigator.tsx ← Login stack → 4 bottom tabs
-        ├── screens/  Login, Dashboard, Analytics, Alerts, Maintenance
+        ├── screens/  Login, Dashboard, Analytics, Cycles, Alerts, Maintenance
         ├── components/LineChart.tsx    ← SVG-free polyline made of Views
+        ├── components/CycleSummaryView.tsx ← pre→post per-parameter result rows (shared)
         └── utils/    storage.ts (SecureStore/AsyncStorage), notifications.ts
 ```
 
@@ -183,7 +184,7 @@ All responses are `{ success: boolean, ... }`. `:deviceId` routes use `mergePara
 | GET | `/api/device/:id/state` | JWT + device | DeviceState (404 if never created) |
 | GET | `/api/device/:id/cycles` | JWT + device | Paginated cycles |
 | PATCH | `/api/device/:id/power` | owner/tech | `{isPoweredOn}`; powering off aborts active cycle |
-| POST | `/api/device/:id/cycle/start` | owner/tech | 409 if already running; implicitly sets `isPoweredOn: true`; returns `{cycleId, cycleNumber, cycleStatus}` |
+| POST | `/api/device/:id/cycle/start` | owner/tech | 409 if a cycle is running **or paused**; implicitly sets `isPoweredOn: true`; returns `{cycleId, cycleNumber, cycleStatus}` |
 | PATCH | `/api/device/:id/cycle/pause` | owner/tech | Toggles running ⇄ paused |
 | POST | `/api/device/:id/cycle/complete` | owner/tech | Finalizes summary, bumps cycle counters, evaluates filter health |
 | GET | `/api/maintenance/:id` | JWT + device | Paginated; `?type=` filter |
@@ -220,7 +221,7 @@ https://docs.expo.dev/versions/v57.0.0/ (APIs changed between 54 and 57).
 - **Entry:** `App.tsx` loads Ionicons font, suppresses the Expo Go push warning, wraps
   `GestureHandlerRootView > SafeAreaProvider > ThemeProvider > AuthProvider > AppNavigator`.
 - **Navigation:** native stack `Login` ⇄ `Main`; `Main` = bottom tabs
-  Dashboard / Analytics / Alerts / Maintenance, wrapped in `DeviceProvider`.
+  Dashboard / Analytics / Cycles / Alerts / Maintenance, wrapped in `DeviceProvider`.
 - **API client:** axios, `BASE_URL = process.env.EXPO_PUBLIC_API_URL ||
   'https://aquafilter.onrender.com/api'` — the default is the deployed API; an untracked
   `frontend/.env` may override it for local-backend testing only. 10 s timeout, JWT from
@@ -228,9 +229,11 @@ https://docs.expo.dev/versions/v57.0.0/ (APIs changed between 54 and 57).
   `configAPI`, `maintenanceAPI`.
 - **AuthContext:** login/register/logout, rehydrates via `/auth/me`, syncs push token.
 - **DeviceContext:** polls `getState` + `getLatest` every 5 s; `esp32Online` = last
-  post-filter reading < 30 s old; local 1 s elapsed timer while running;
-  `cycleProgress` is **always 0** (never computed). Exposes `togglePower` (no UI button —
-  removed in `1a52bbb`), `startCycle`, `pauseCycle`.
+  post-filter reading < 30 s old. Tracks `cycleStatus` (idle/running/paused/completed);
+  `elapsedSeconds` is derived from the active cycle's `startedAt` on every poll (survives
+  reloads) and ticks locally while running; `cycleProgress` is **always 0** (never
+  computed). Exposes `togglePower` (no UI button — removed in `1a52bbb`), `startCycle`,
+  `pauseCycle` (toggles running⇄paused), `completeCycle` (returns the `CycleSummary`).
 - **ThemeContext:** LIGHT (default, "for thesis demo") / DARK green palette; persisted in
   AsyncStorage key `theme`. Components receive colors as `C`.
 - **Storage:** `expo-secure-store` on native, AsyncStorage on web. Keys `authToken`, `pushToken`.
@@ -238,10 +241,16 @@ https://docs.expo.dev/versions/v57.0.0/ (APIs changed between 54 and 57).
   Local notifications fired from Dashboard when pH ∉ [6.5, 8.5] or turbidity > 100.
 - **Screens:**
   - *Dashboard* — header (name, Online/Offline pill, WiFi modal, theme, logout), cycle card
-    (timer, progress bar, Start/Pause), 4 sensor cards (pH, Turbidity, TDS, Water Level
-    placeholder), Bio-Filter Health card. WiFi modal: scan (poll 3 s, 30 s timeout) → pick
+    (timer, progress bar, status badge IDLE/RUNNING/PAUSED, buttons Start → Pause/Resume +
+    Finish; Finish confirms, calls `cycle/complete`, shows the result modal), 4 sensor cards
+    (pH, Turbidity, TDS, Water Level placeholder), Bio-Filter Health card. WiFi modal: scan (poll 3 s, 30 s timeout) → pick
     → password → `configAPI.updateWifi`; manual SSID fallback.
-  - *Analytics* — ranges 1h/6h/24h/7d → `history` (limit 50) + `averages`; 3 line charts.
+  - *Analytics* — ranges 1h/6h/24h/7d, sample-point toggle (post-filter output /
+    pre-filter input) → `history` (limit 50) + `averages` + `compare`; "Filter Performance"
+    card (pre→post averages, % removed) and 3 line charts.
+  - *Cycles* — paginated cycle history (`/device/:id/cycles`, 20 per page, pull-to-refresh);
+    per-cycle card with status, duration, and the completed summary; header shows average
+    turbidity/TDS removal across loaded completed cycles. This is the thesis-result view.
   - *Alerts* — **derived client-side** from recent readings + unacknowledged maintenance +
     filter health; not persisted server-side. Filters All/Sensors/Maintenance/Cycle.
   - *Maintenance* — list records, acknowledge, create via modal (types exclude
@@ -312,8 +321,8 @@ New contributor? Follow [docs/SETUP.md](docs/SETUP.md) first.
    non-constant-time `!==`.
 3. `isPoweredOn` is now set implicitly by `cycle/start` (fixed 2026-09-15); the
    `PATCH /power` endpoint still exists but the app has no UI for it.
-4. `cycleProgress` never updates; `cycle/complete` exists in the backend but the app
-   never calls it (cycles end only via ESP32/manual API).
+4. `cycleProgress` never updates (no expected-duration parameter defined yet); the bar
+   stays at 0 %. Cycles can be finished from the app since 2026-09-15.
 5. Alerts are computed on the client; there is no persisted alert history.
 6. Water-level sensor card is a placeholder.
 7. `notifyDeviceOffline/Online` unused; no heartbeat watchdog.
@@ -323,7 +332,7 @@ New contributor? Follow [docs/SETUP.md](docs/SETUP.md) first.
     Atlas was updated to 180 days on 2026-09-15 — if the collection is ever recreated,
     repeat `docs/SETUP.md` §7.)
 11. `LineChart` uses hardcoded dark-theme colours, not `ThemeContext`.
-12. Test coverage is minimal: only `startCycle` has unit tests; no frontend tests.
+12. Test coverage is minimal: only `startCycle` has unit tests (8 cases); no frontend tests.
 13. `frontend/App.js.backup` is a stale leftover (gitignored by `*.backup`).
 
 ---

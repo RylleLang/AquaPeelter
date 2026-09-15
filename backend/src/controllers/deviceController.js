@@ -84,10 +84,15 @@ exports.startCycle = async (req, res) => {
     // May be null for a device that has never reported or been controlled before
     const state = await DeviceState.findOne({ deviceId });
 
-    if (state?.cycleStatus === 'running') {
+    // A running OR paused cycle is still the active cycle — starting another would
+    // orphan it (activeCycleId overwritten, never completed).
+    if (state?.cycleStatus === 'running' || (state?.cycleStatus === 'paused' && state.activeCycleId)) {
       return res.status(409).json({
         success: false,
-        message: 'A filtration cycle is already running',
+        message:
+          state.cycleStatus === 'paused'
+            ? 'A filtration cycle is paused — resume or finish it first'
+            : 'A filtration cycle is already running',
       });
     }
 

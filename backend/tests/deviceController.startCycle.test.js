@@ -101,6 +101,42 @@ describe('startCycle', () => {
     expect(DeviceState.upsertState).not.toHaveBeenCalled();
   });
 
+  test('rejects with 409 when a cycle is paused (still active)', async () => {
+    DeviceState.findOne.mockResolvedValue({
+      isPoweredOn: true,
+      cycleStatus: 'paused',
+      activeCycleId: 'cycle-7',
+      totalCycles: 7,
+    });
+    const res = mockRes();
+
+    await startCycle(mockReq(), res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({
+      success: false,
+      message: 'A filtration cycle is paused — resume or finish it first',
+    });
+    expect(FiltrationCycle.create).not.toHaveBeenCalled();
+  });
+
+  test('starts a new cycle after the previous one completed', async () => {
+    DeviceState.findOne.mockResolvedValue({
+      isPoweredOn: true,
+      cycleStatus: 'completed',
+      activeCycleId: null,
+      totalCycles: 3,
+    });
+    const res = mockRes();
+
+    await startCycle(mockReq(), res);
+
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(FiltrationCycle.create).toHaveBeenCalledWith(
+      expect.objectContaining({ cycleNumber: 4 })
+    );
+  });
+
   test('sends a push notification only when users have tokens', async () => {
     DeviceState.findOne.mockResolvedValue(null);
     User.find.mockReturnValue({
