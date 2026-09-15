@@ -66,8 +66,12 @@ you are proceeding on their instruction and do it.
   A water-level sensor is planned but **not** wired (dashboard shows "Sensor pending").
 - **Stack:** ESP32 NodeMCU → Node.js/Express + MongoDB (Mongoose) on Render →
   React Native (Expo SDK 57) mobile app. Push via Expo Push API.
-- **Single-device prototype:** `deviceId = esp32-aquafilter-001` is hardcoded in
-  [frontend/src/api/client.ts](frontend/src/api/client.ts) and used as the telemetry fallback.
+- **Single-device prototype:** `deviceId = esp32-aquafilter-001` is the default in
+  [frontend/src/api/client.ts](frontend/src/api/client.ts) (`EXPO_PUBLIC_DEVICE_ID` may
+  override it via an untracked `frontend/.env`) and the telemetry fallback.
+- **Demo device:** `esp32-demo-001` holds **synthetic** data from
+  `backend/scripts/seed-demo.js` for UI demos while the hardware is unavailable. It is
+  not an experiment; never cite its values (B8). The seeder refuses the real device id.
 - **Roles:** `owner` (default on register), `technician`, `viewer`.
 
 ---
@@ -83,6 +87,8 @@ Software/
 │   ├── .env.example          ← template of required env vars (safe to read)
 │   ├── .env                  ← REAL SECRETS — barrier B1
 │   ├── esp32_firmware_reference/telemetry_sender.ino
+│   ├── scripts/seed-demo.js  ← synthetic data for demo device esp32-demo-001 (npm run seed:demo)
+│   ├── tests/                ← Jest unit tests (models mocked)
 │   └── src/
 │       ├── app.js            ← middleware stack + route mounting
 │       ├── config/   database.js, logger.js (winston → console + logs/*.log)

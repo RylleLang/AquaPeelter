@@ -146,7 +146,37 @@ on the production cluster, from MongoDB Atlas:
 `collMod` only edits the index option; no data is touched and no downtime occurs.
 Record the date you did this in the thesis change log.
 
-## 8. Repository map (short)
+## 8. Demo data while the ESP32 is unavailable
+
+The app shows `--` and "Offline" when no device is posting. To demo or test the UI
+without hardware, seed **synthetic** data into a separate demo device
+(`esp32-demo-001`). This never touches the real prototype's data.
+
+```bash
+cd backend
+npm run seed:demo -- --mode api --api https://aquafilter.onrender.com/api
+```
+
+It asks for your app login (owner or technician). It posts ~7 days of backdated
+readings and creates 3 short live cycles so Analytics, Dashboard, and cycle history
+have content. Then point the app at the demo device:
+
+```bash
+# frontend/.env  (untracked — never commit it)
+EXPO_PUBLIC_DEVICE_ID=esp32-demo-001
+```
+
+Restart `npx expo start` (env vars are read at startup). Delete the line, or the file,
+to return to the real device.
+
+Rules:
+- Demo values are **illustrative only**. Never present them as experimental results
+  or use them in the thesis (CLAUDE.md barrier B8).
+- The seeder refuses the real device id and refuses Atlas in `db` mode; `db` mode is
+  for a local MongoDB only and can backdate realistic multi-day cycles
+  (`npm run seed:demo -- --mode db --reset`).
+
+## 9. Repository map (short)
 
 ```
 backend/     Express + MongoDB API (deployed on Render)

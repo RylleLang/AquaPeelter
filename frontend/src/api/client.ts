@@ -7,8 +7,11 @@ import { MaintenanceForm, MaintenanceRecord } from '../types';
 // Do not change the default — see CLAUDE.md barrier B5.
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://aquafilter.onrender.com/api';
 
+// Single-device prototype. Override with EXPO_PUBLIC_DEVICE_ID in an untracked
+// frontend/.env to view the synthetic demo device (`esp32-demo-001`, see
+// backend/scripts/seed-demo.js) — never point the real device id at demo data.
 // TODO: This should be dynamic per user, not hardcoded globally.
-const DEVICE_ID = 'esp32-aquafilter-001';
+const DEVICE_ID = process.env.EXPO_PUBLIC_DEVICE_ID || 'esp32-aquafilter-001';
 
 const client = axios.create({
   baseURL: BASE_URL,
