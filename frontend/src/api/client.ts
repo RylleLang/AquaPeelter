@@ -2,8 +2,10 @@ import axios, { InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 import { storage } from '../utils/storage'; // Note: Ensure this uses expo-secure-store for tokens
 import { MaintenanceForm, MaintenanceRecord } from '../types';
 
-// Deployed backend (Render). Do not change — see CLAUDE.md barrier B5.
-const BASE_URL = 'https://aquafilter.onrender.com/api';
+// Deployed backend (Render) by default. For local backend testing only, create an
+// untracked frontend/.env with EXPO_PUBLIC_API_URL=http://<laptop-ip>:5000/api.
+// Do not change the default — see CLAUDE.md barrier B5.
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://aquafilter.onrender.com/api';
 
 // TODO: This should be dynamic per user, not hardcoded globally.
 const DEVICE_ID = 'esp32-aquafilter-001';

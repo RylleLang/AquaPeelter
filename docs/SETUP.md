@@ -9,7 +9,7 @@ Takes about 20 minutes. Ask Rylle if anything here doesn't match what you see.
 |------|---------|-------|
 | Git | any recent | `git --version` |
 | Node.js | 18 or newer (20 LTS recommended) | `node --version` |
-| Expo Go app | latest, on your Android/iOS phone | Play Store / App Store |
+| Expo Go app | the version matching the project's Expo SDK (currently **57**) | Play Store / App Store |
 | Claude Code (optional) | latest | `claude --version` |
 
 You do **not** need MongoDB, Arduino IDE, or the ESP32 to work on the mobile app —
@@ -37,6 +37,11 @@ npx expo start
 
 Scan the QR code with Expo Go on your phone (phone and laptop must be on the same
 Wi‑Fi). The app connects to `https://aquafilter.onrender.com/api` automatically.
+
+If Expo Go says **"Project is incompatible with this version of Expo Go"**, the
+project's SDK (see `"expo"` in `frontend/package.json`) and your Expo Go version differ.
+Stock Expo Go only supports the newest SDK; older Android builds are at
+https://expo.dev/go. Do not upgrade the project SDK on your own — agree it first.
 
 Notes:
 - The Render backend is on a free tier — the **first request after idle can take

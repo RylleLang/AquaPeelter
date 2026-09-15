@@ -65,7 +65,7 @@ you are proceeding on their instruction and do it.
 - **Sensors:** pH (0–14), Turbidity (NTU), TDS (ppm); optional temperature (°C).
   A water-level sensor is planned but **not** wired (dashboard shows "Sensor pending").
 - **Stack:** ESP32 NodeMCU → Node.js/Express + MongoDB (Mongoose) on Render →
-  React Native (Expo SDK 54) mobile app. Push via Expo Push API.
+  React Native (Expo SDK 57) mobile app. Push via Expo Push API.
 - **Single-device prototype:** `deviceId = esp32-aquafilter-001` is hardcoded in
   [frontend/src/api/client.ts](frontend/src/api/client.ts) and used as the telemetry fallback.
 - **Roles:** `owner` (default on register), `technician`, `viewer`.
@@ -92,7 +92,7 @@ Software/
 │       ├── routes/   auth, telemetry, sensor, device, maintenance, config
 │       └── services/ notificationService.js, filterHealthService.js
 └── frontend/                 ← Expo app  (npx expo start)
-    ├── App.tsx, index.ts, tsconfig.json, app.json, eas.json, babel.config.js
+    ├── App.tsx, index.ts, tsconfig.json, app.json, eas.json, .gitignore
     └── src/
         ├── api/client.ts         ← axios instance + all API wrappers
         ├── context/  AuthContext, DeviceContext (5 s polling), ThemeContext
@@ -202,14 +202,22 @@ All responses are `{ success: boolean, ... }`. `:deviceId` routes use `mergePara
 
 ---
 
-## 5. Frontend reference (Expo SDK 54, RN 0.81, React 19)
+## 5. Frontend reference (Expo SDK 57, RN 0.86, React 19, React Navigation 7)
+
+SDK history: built on SDK 54; upgraded to **SDK 57 on 2026-09-15** (Roy, PRs #4/#5)
+because stock Expo Go only runs the current SDK — SDK 54 projects could no longer be
+opened on any phone. Major upgrades still need explicit approval (B10); the next one
+will be forced the same way when Expo Go moves on, so plan an EAS development build
+(§8) to stop depending on Expo Go. When writing Expo code, use the versioned docs:
+https://docs.expo.dev/versions/v57.0.0/ (APIs changed between 54 and 57).
 
 - **Entry:** `App.tsx` loads Ionicons font, suppresses the Expo Go push warning, wraps
   `GestureHandlerRootView > SafeAreaProvider > ThemeProvider > AuthProvider > AppNavigator`.
 - **Navigation:** native stack `Login` ⇄ `Main`; `Main` = bottom tabs
   Dashboard / Analytics / Alerts / Maintenance, wrapped in `DeviceProvider`.
-- **API client:** axios, `BASE_URL = https://aquafilter.onrender.com/api` (hardcoded;
-  `app.json extra.API_BASE_URL` duplicates it but is unused), 10 s timeout, JWT from
+- **API client:** axios, `BASE_URL = process.env.EXPO_PUBLIC_API_URL ||
+  'https://aquafilter.onrender.com/api'` — the default is the deployed API; an untracked
+  `frontend/.env` may override it for local-backend testing only. 10 s timeout, JWT from
   `storage`, 401 → token cleared. Wrappers: `authAPI`, `sensorAPI`, `deviceAPI`,
   `configAPI`, `maintenanceAPI`.
 - **AuthContext:** login/register/logout, rehydrates via `/auth/me`, syncs push token.
@@ -280,8 +288,11 @@ New contributor? Follow [docs/SETUP.md](docs/SETUP.md) first.
 - **Backend prod:** Render, `https://aquafilter.onrender.com` (free tier → cold starts;
   the app's 10 s axios timeout can trip on first request). Earlier hosts (Railway, local
   IP) are gone.
-- **Frontend:** `cd frontend && npm install && npx expo start` (Expo Go for UI; EAS dev
-  build required for push). EAS profiles: development / preview / production.
+- **Frontend:** `cd frontend && npm install && npx expo start` (Expo Go for UI — must be the
+  Expo Go version matching the project SDK; EAS dev build required for push).
+  `eas.json` profiles: development / preview / production. `app.json` slug **must stay
+  `aquafilter`** — it is the slug registered to the EAS `projectId`; a mismatch makes
+  `eas build` refuse to run.
 - **Git:** single branch `main` on https://github.com/RylleLang/AquaPeelter; two
   contributors (Rylle + Roy). The remote is the thesis deliverable (barrier B2/B3).
 
