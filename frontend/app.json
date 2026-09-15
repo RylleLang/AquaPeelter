@@ -1,9 +1,10 @@
 {
   "expo": {
     "name": "AquaPeelter",
-    "slug": "aquafilter",
+    "slug": "aquapeelter",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "assetBundlePatterns": [
       "**/*"
@@ -13,13 +14,26 @@
       "bundleIdentifier": "com.aquafilter.app"
     },
     "android": {
-      "package": "com.aquafilter.app"
+      "package": "com.aquafilter.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
     },
     "extra": {
       "API_BASE_URL": "https://aquafilter.onrender.com/api",
       "eas": {
         "projectId": "e3a9d5e9-d39c-4bf5-aeb4-788abfdae9c1"
       }
-    }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store"
+    ]
   }
 }

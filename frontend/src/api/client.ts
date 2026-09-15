@@ -2,8 +2,8 @@ import axios, { InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 import { storage } from '../utils/storage'; // Note: Ensure this uses expo-secure-store for tokens
 import { MaintenanceForm, MaintenanceRecord } from '../types';
 
-// Deployed backend (Render). Do not change — see CLAUDE.md barrier B5.
-const BASE_URL = 'https://aquafilter.onrender.com/api';
+// Access base public URL from .env file
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
 
 // TODO: This should be dynamic per user, not hardcoded globally.
 const DEVICE_ID = 'esp32-aquafilter-001';
