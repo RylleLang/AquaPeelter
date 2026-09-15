@@ -112,7 +112,36 @@ Good habits:
 - If it says a feature is "planned" (Bluetooth, Guest Mode, water level), that is
   correct — do not let it describe those as implemented in thesis documents.
 
-## 7. Repository map (short)
+## 7. One-time: update the Atlas TTL index (data retention)
+
+`SensorReading` readings expire automatically via a MongoDB TTL index. The code sets
+this to **180 days**, but MongoDB will not change an index that already exists with a
+different value, and the production server runs with `autoIndex: false`. So the live
+database keeps the old **90-day** value until someone updates it by hand. Do this once,
+on the production cluster, from MongoDB Atlas:
+
+1. Atlas → your cluster → **Browse Collections** → database `aquafilter` →
+   collection `sensorreadings` → **Indexes** tab. Confirm there is an index on
+   `{ timestamp: 1 }` with `expireAfterSeconds: 7776000` (= 90 days).
+2. Open the **Atlas Shell** / `mongosh` connected to the cluster (Atlas → *Connect* →
+   *Shell*), then run:
+
+   ```javascript
+   use aquafilter
+   db.runCommand({
+     collMod: "sensorreadings",
+     index: { keyPattern: { timestamp: 1 }, expireAfterSeconds: 15552000 }
+   })
+   ```
+
+   `15552000` = 180 × 24 × 60 × 60. A reply of `{ ok: 1, expireAfterSeconds_old: 7776000,
+   expireAfterSeconds_new: 15552000 }` confirms it.
+3. Refresh the Indexes tab — it should now show `expireAfterSeconds: 15552000`.
+
+`collMod` only edits the index option; no data is touched and no downtime occurs.
+Record the date you did this in the thesis change log.
+
+## 8. Repository map (short)
 
 ```
 backend/     Express + MongoDB API (deployed on Render)
