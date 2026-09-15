@@ -4,7 +4,7 @@
  * Optimized for:
  *  - High-frequency chronological writes from NodeMCU
  *  - Fast range queries by deviceId + timestamp (compound index)
- *  - Automatic TTL expiry of raw data after 90 days to control storage
+ *  - Automatic TTL expiry of raw data after 180 days (6 months) to control storage
  *
  * Units:
  *  ph        — pH scale 0–14
@@ -94,10 +94,10 @@ SensorReadingSchema.index({ deviceId: 1, timestamp: -1 });
 // Cycle-level aggregation queries
 SensorReadingSchema.index({ cycleId: 1, samplePoint: 1 });
 
-// TTL index — automatically purge raw readings after 90 days
+// TTL index — automatically purge raw readings after 180 days (6 months)
 SensorReadingSchema.index(
   { timestamp: 1 },
-  { expireAfterSeconds: 60 * 60 * 24 * 90 }
+  { expireAfterSeconds: 60 * 60 * 24 * 180 }
 );
 
 // -------------------------------------------------------------------
