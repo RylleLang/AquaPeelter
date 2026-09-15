@@ -150,7 +150,7 @@ Content-Type/Authorization/X-Device-Signature/X-Device-Id) → compression →
 ### 4.4 Models (Mongoose)
 | Model | Key fields | Notes |
 |-------|-----------|-------|
-| `SensorReading` | deviceId, timestamp, ph, turbidity, tds, temperature, cycleId, samplePoint (`pre-filter` / `post-filter`), payloadChecksum | Indexes `{deviceId,timestamp:-1}`, `{cycleId,samplePoint}`, **TTL on timestamp** (see §9 for the pending 90→180 day change). Virtual `qualityTier`. Statics `getAveragesForRange`, `getTimeSeries`. |
+| `SensorReading` | deviceId, timestamp, ph, turbidity, tds, temperature, cycleId, samplePoint (`pre-filter` / `post-filter`), payloadChecksum | Indexes `{deviceId,timestamp:-1}`, `{cycleId,samplePoint}`, **TTL on timestamp: 180 days** (thesis data-retention parameter — see §7). Virtual `qualityTier`. Statics `getAveragesForRange`, `getTimeSeries`. |
 | `FiltrationCycle` | deviceId, startedAt, completedAt, durationSeconds, status (running / paused / completed / aborted), cycleNumber, summary{preFilter, postFilter, phImprovement, turbidityReduction, tdsReduction}, notes | `finalize(preAvg, postAvg)` computes % reductions. |
 | `DeviceState` | deviceId (unique), isPoweredOn, cycleStatus (idle / running / paused / completed), activeCycleId, cyclesSinceLastService, totalCycles, filterHealthPercent, lastHeartbeatAt, firmwareVersion, pushTokens, offlineThresholdSeconds (30) | One upserted doc per device. `upsertState()`, `recalculateFilterHealth()`, virtual `isOnline`. |
 | `MaintenanceRecord` | deviceId, type (filter_replacement / filter_cleaning / sensor_calibration / system_inspection / repair / other), performedAt, cycleCountAtService, acknowledged, filterStage, performedBy→User, notes, calibrationData | `filter_replacement` resets filter health to 100 %. |
@@ -265,6 +265,7 @@ wastewater class mandates **pH only**. TDS and turbidity limits must be sourced 
 peer-reviewed laundry-wastewater literature — write `[TO BE CONFIRMED]` until provided.
 
 Other parameters: filter replacement at 50 cycles (health % = (limit − used) / limit);
+raw sensor data retention 180 days (TTL index, changed from 90 on 2026-09-15);
 offline threshold 30 s; telemetry 5 s; app polling 5 s; JWT 7 d.
 
 ---
@@ -300,10 +301,10 @@ New contributor? Follow [docs/SETUP.md](docs/SETUP.md) first.
 7. `notifyDeviceOffline/Online` unused; no heartbeat watchdog.
 8. `deviceAccess` lets every `owner` see every device; default role is `owner`.
 9. WiFi passwords stored in plaintext in `DeviceConfig`.
-10. Batch telemetry skips field validation; `SensorReading` TTL currently has an
-    **uncommitted change 90 → 180 days** in the working tree. MongoDB will not alter an
-    existing TTL index via `createIndex` (needs `collMod` / drop-recreate), and prod has
-    `autoIndex: false` — so the change is not live until applied manually on Atlas.
+10. Batch telemetry skips per-item field validation. Also: the `SensorReading` TTL was
+    changed 90 → 180 days in code, but MongoDB will not alter an existing TTL index via
+    `createIndex` and prod has `autoIndex: false` — the live Atlas index must be updated
+    manually with `collMod` (see `docs/SETUP.md` § Atlas TTL) or it stays at 90 days.
 11. `LineChart` uses hardcoded dark-theme colours, not `ThemeContext`.
 12. No automated tests; `jest` / `supertest` are installed but unused.
 13. `frontend/App.js.backup` is a stale leftover (gitignored by `*.backup`).
