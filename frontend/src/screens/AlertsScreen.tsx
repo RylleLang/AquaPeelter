@@ -46,16 +46,19 @@ function deriveAlerts(
 ): Alert[] {
   const alerts: Alert[] = [];
 
-  readings.forEach((r) => {
+  readings.forEach((r, i) => {
     const t = r.createdAt || r.timestamp || new Date().toISOString();
+    // Two readings can share a timestamp (batch resend, pre/post pair), so the
+    // reading's index is part of the key to keep React list keys unique.
+    const k = `${t}-${i}`;
     if (r.ph !== null && r.ph < 6.5)
-      alerts.push({ id: `ph-low-${t}`, type: 'sensor', severity: 'warning', icon: 'flask', title: 'Low pH Level', desc: `pH dropped to ${r.ph.toFixed(2)} — below safe range (6.5–8.5)`, time: t, color: '#7C3AED' });
+      alerts.push({ id: `ph-low-${k}`, type: 'sensor', severity: 'warning', icon: 'flask', title: 'Low pH Level', desc: `pH dropped to ${r.ph.toFixed(2)} — below safe range (6.5–8.5)`, time: t, color: '#7C3AED' });
     if (r.ph !== null && r.ph > 8.5)
-      alerts.push({ id: `ph-high-${t}`, type: 'sensor', severity: 'warning', icon: 'flask', title: 'High pH Level', desc: `pH rose to ${r.ph.toFixed(2)} — above safe range (6.5–8.5)`, time: t, color: '#7C3AED' });
+      alerts.push({ id: `ph-high-${k}`, type: 'sensor', severity: 'warning', icon: 'flask', title: 'High pH Level', desc: `pH rose to ${r.ph.toFixed(2)} — above safe range (6.5–8.5)`, time: t, color: '#7C3AED' });
     if (r.turbidity !== null && r.turbidity > 100)
-      alerts.push({ id: `turb-${t}`, type: 'sensor', severity: 'danger', icon: 'eye', title: 'High Turbidity', desc: `Turbidity at ${r.turbidity.toFixed(1)} NTU — exceeds 100 NTU limit`, time: t, color: '#0284C7' });
+      alerts.push({ id: `turb-${k}`, type: 'sensor', severity: 'danger', icon: 'eye', title: 'High Turbidity', desc: `Turbidity at ${r.turbidity.toFixed(1)} NTU — exceeds 100 NTU limit`, time: t, color: '#0284C7' });
     if (r.tds !== null && r.tds > 500)
-      alerts.push({ id: `tds-${t}`, type: 'sensor', severity: r.tds > 1000 ? 'danger' : 'warning', icon: 'beaker', title: r.tds > 1000 ? 'Critical TDS Level' : 'Elevated TDS', desc: `TDS at ${r.tds.toFixed(0)} ppm — safe limit is 500 ppm`, time: t, color: '#0891B2' });
+      alerts.push({ id: `tds-${k}`, type: 'sensor', severity: r.tds > 1000 ? 'danger' : 'warning', icon: 'beaker', title: r.tds > 1000 ? 'Critical TDS Level' : 'Elevated TDS', desc: `TDS at ${r.tds.toFixed(0)} ppm — safe limit is 500 ppm`, time: t, color: '#0891B2' });
   });
 
   maintenance.forEach((m) => {

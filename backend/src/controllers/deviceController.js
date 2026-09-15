@@ -81,23 +81,31 @@ exports.startCycle = async (req, res) => {
   const { deviceId } = req.params;
 
   try {
+    // May be null for a device that has never reported or been controlled before
     const state = await DeviceState.findOne({ deviceId });
 
-    if (!state?.isPoweredOn) {
+    // A running OR paused cycle is still the active cycle — starting another would
+    // orphan it (activeCycleId overwritten, never completed).
+    if (state?.cycleStatus === 'running' || (state?.cycleStatus === 'paused' && state.activeCycleId)) {
       return res.status(409).json({
         success: false,
-        message: 'Device must be powered on before starting a cycle',
+        message:
+          state.cycleStatus === 'paused'
+            ? 'A filtration cycle is paused — resume or finish it first'
+            : 'A filtration cycle is already running',
       });
     }
 
-    if (state.cycleStatus === 'running') {
-      return res.status(409).json({
-        success: false,
-        message: 'A filtration cycle is already running',
-      });
-    }
+    // Number by cycles ever created for this device (aborted ones included) so
+    // numbers are unique. totalCycles only counts completions and would repeat.
+    const cycleNumber = (await FiltrationCycle.countDocuments({ deviceId })) + 1;
 
-    const cycleNumber = (state.totalCycles || 0) + 1;
+    // Self-heal: any cycle left running/paused that is not the active one was
+    // orphaned by an earlier bug — mark it aborted so history stays truthful.
+    await FiltrationCycle.updateMany(
+      { deviceId, status: { $in: ['running', 'paused'] } },
+      { $set: { status: 'aborted', completedAt: new Date() } }
+    );
 
     const cycle = await FiltrationCycle.create({
       deviceId,
@@ -106,8 +114,11 @@ exports.startCycle = async (req, res) => {
       status: 'running',
     });
 
+    // Starting a cycle implicitly powers the device on — the mobile app has no
+    // separate power toggle, so the power flag must not gate cycle start.
     await DeviceState.upsertState(deviceId, {
       $set: {
+        isPoweredOn: true,
         cycleStatus: 'running',
         activeCycleId: cycle._id,
       },
@@ -119,7 +130,10 @@ exports.startCycle = async (req, res) => {
     if (tokens.length > 0) notifyCycleStarted(tokens, cycleNumber);
 
     logger.info(`Cycle #${cycleNumber} started on device ${deviceId}`);
-    res.status(201).json({ success: true, data: { cycleId: cycle._id, cycleNumber } });
+    res.status(201).json({
+      success: true,
+      data: { cycleId: cycle._id, cycleNumber, cycleStatus: 'running' },
+    });
   } catch (err) {
     logger.error(`startCycle error: ${err.message}`);
     res.status(500).json({ success: false, message: 'Failed to start filtration cycle' });
@@ -204,6 +218,13 @@ exports.completeCycle = async (req, res) => {
     ]);
 
     await cycle.finalize(preAvgArr[0] || {}, postAvgArr[0] || {});
+
+    // Self-heal orphaned cycles (see startCycle) — everything else still
+    // running/paused on this device is stale once the active cycle completes.
+    await FiltrationCycle.updateMany(
+      { deviceId, _id: { $ne: cycle._id }, status: { $in: ['running', 'paused'] } },
+      { $set: { status: 'aborted', completedAt: new Date() } }
+    );
 
     await DeviceState.upsertState(deviceId, {
       $set: {
