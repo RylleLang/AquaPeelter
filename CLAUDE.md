@@ -64,9 +64,9 @@ you are proceeding on their instruction and do it.
 - **Sensors:** pH (0–14), Turbidity (NTU), TDS (ppm); optional temperature (°C).
   A water-level sensor is planned but **not** wired (dashboard shows "Sensor pending").
 - **Stack:** ESP32 NodeMCU → Node.js/Express + MongoDB (Mongoose) on Render →
-  React Native (Expo SDK 54) mobile app. Push via Expo Push API.
+  React Native (Expo SDK 57) mobile app. Push via Expo Push API.
 - **Single-device prototype:** `deviceId = esp32-aquafilter-001` is hardcoded in
-  [frontend/src/api/client.js](frontend/src/api/client.js) and used as the telemetry fallback.
+  [frontend/src/api/client.ts](frontend/src/api/client.ts) and used as the telemetry fallback.
 - **Roles:** `owner` (default on register), `technician`, `viewer`.
 
 ---
@@ -91,14 +91,14 @@ Software/
 │       ├── routes/   auth, telemetry, sensor, device, maintenance, config
 │       └── services/ notificationService.js, filterHealthService.js
 └── frontend/                 ← Expo app  (npx expo start)
-    ├── App.js, index.js, app.json, eas.json, babel.config.js
+    ├── App.tsx, index.ts, tsconfig.json, app.json, eas.json, .gitignore
     └── src/
-        ├── api/client.js         ← axios instance + all API wrappers
+        ├── api/client.ts         ← axios instance + all API wrappers
         ├── context/  AuthContext, DeviceContext (5 s polling), ThemeContext
-        ├── navigation/AppNavigator.js  ← Login stack → 4 bottom tabs
+        ├── navigation/AppNavigator.tsx ← Login stack → 4 bottom tabs
         ├── screens/  Login, Dashboard, Analytics, Alerts, Maintenance
-        ├── components/LineChart.js     ← SVG-free polyline made of Views
-        └── utils/    storage.js (SecureStore/AsyncStorage), notifications.js
+        ├── components/LineChart.tsx    ← SVG-free polyline made of Views
+        └── utils/    storage.ts (SecureStore/AsyncStorage), notifications.ts
 ```
 
 ---
@@ -150,7 +150,7 @@ Content-Type/Authorization/X-Device-Signature/X-Device-Id) → compression →
 ### 4.4 Models (Mongoose)
 | Model | Key fields | Notes |
 |-------|-----------|-------|
-| `SensorReading` | deviceId, timestamp, ph, turbidity, tds, temperature, cycleId, samplePoint (`pre-filter` / `post-filter`), payloadChecksum | Indexes `{deviceId,timestamp:-1}`, `{cycleId,samplePoint}`, **TTL on timestamp** (see §9 for the pending 90→180 day change). Virtual `qualityTier`. Statics `getAveragesForRange`, `getTimeSeries`. |
+| `SensorReading` | deviceId, timestamp, ph, turbidity, tds, temperature, cycleId, samplePoint (`pre-filter` / `post-filter`), payloadChecksum | Indexes `{deviceId,timestamp:-1}`, `{cycleId,samplePoint}`, **TTL on timestamp: 180 days** (thesis data-retention parameter — see §7). Virtual `qualityTier`. Statics `getAveragesForRange`, `getTimeSeries`. |
 | `FiltrationCycle` | deviceId, startedAt, completedAt, durationSeconds, status (running / paused / completed / aborted), cycleNumber, summary{preFilter, postFilter, phImprovement, turbidityReduction, tdsReduction}, notes | `finalize(preAvg, postAvg)` computes % reductions. |
 | `DeviceState` | deviceId (unique), isPoweredOn, cycleStatus (idle / running / paused / completed), activeCycleId, cyclesSinceLastService, totalCycles, filterHealthPercent, lastHeartbeatAt, firmwareVersion, pushTokens, offlineThresholdSeconds (30) | One upserted doc per device. `upsertState()`, `recalculateFilterHealth()`, virtual `isOnline`. |
 | `MaintenanceRecord` | deviceId, type (filter_replacement / filter_cleaning / sensor_calibration / system_inspection / repair / other), performedAt, cycleCountAtService, acknowledged, filterStage, performedBy→User, notes, calibrationData | `filter_replacement` resets filter health to 100 %. |
@@ -201,14 +201,22 @@ All responses are `{ success: boolean, ... }`. `:deviceId` routes use `mergePara
 
 ---
 
-## 5. Frontend reference (Expo SDK 54, RN 0.81, React 19)
+## 5. Frontend reference (Expo SDK 57, RN 0.86, React 19, React Navigation 7)
 
-- **Entry:** `App.js` loads Ionicons font, suppresses the Expo Go push warning, wraps
+SDK history: built on SDK 54; upgraded to **SDK 57 on 2026-09-15** (Roy, PRs #4/#5)
+because stock Expo Go only runs the current SDK — SDK 54 projects could no longer be
+opened on any phone. Major upgrades still need explicit approval (B10); the next one
+will be forced the same way when Expo Go moves on, so plan an EAS development build
+(§8) to stop depending on Expo Go. When writing Expo code, use the versioned docs:
+https://docs.expo.dev/versions/v57.0.0/ (APIs changed between 54 and 57).
+
+- **Entry:** `App.tsx` loads Ionicons font, suppresses the Expo Go push warning, wraps
   `GestureHandlerRootView > SafeAreaProvider > ThemeProvider > AuthProvider > AppNavigator`.
 - **Navigation:** native stack `Login` ⇄ `Main`; `Main` = bottom tabs
   Dashboard / Analytics / Alerts / Maintenance, wrapped in `DeviceProvider`.
-- **API client:** axios, `BASE_URL = https://aquafilter.onrender.com/api` (hardcoded;
-  `app.json extra.API_BASE_URL` duplicates it but is unused), 10 s timeout, JWT from
+- **API client:** axios, `BASE_URL = process.env.EXPO_PUBLIC_API_URL ||
+  'https://aquafilter.onrender.com/api'` — the default is the deployed API; an untracked
+  `frontend/.env` may override it for local-backend testing only. 10 s timeout, JWT from
   `storage`, 401 → token cleared. Wrappers: `authAPI`, `sensorAPI`, `deviceAPI`,
   `configAPI`, `maintenanceAPI`.
 - **AuthContext:** login/register/logout, rehydrates via `/auth/me`, syncs push token.
@@ -265,6 +273,7 @@ wastewater class mandates **pH only**. TDS and turbidity limits must be sourced 
 peer-reviewed laundry-wastewater literature — write `[TO BE CONFIRMED]` until provided.
 
 Other parameters: filter replacement at 50 cycles (health % = (limit − used) / limit);
+raw sensor data retention 180 days (TTL index, changed from 90 on 2026-09-15);
 offline threshold 30 s; telemetry 5 s; app polling 5 s; JWT 7 d.
 
 ---
@@ -278,8 +287,11 @@ New contributor? Follow [docs/SETUP.md](docs/SETUP.md) first.
 - **Backend prod:** Render, `https://aquafilter.onrender.com` (free tier → cold starts;
   the app's 10 s axios timeout can trip on first request). Earlier hosts (Railway, local
   IP) are gone.
-- **Frontend:** `cd frontend && npm install && npx expo start` (Expo Go for UI; EAS dev
-  build required for push). EAS profiles: development / preview / production.
+- **Frontend:** `cd frontend && npm install && npx expo start` (Expo Go for UI — must be the
+  Expo Go version matching the project SDK; EAS dev build required for push).
+  `eas.json` profiles: development / preview / production. `app.json` slug **must stay
+  `aquafilter`** — it is the slug registered to the EAS `projectId`; a mismatch makes
+  `eas build` refuse to run.
 - **Git:** single branch `main` on https://github.com/RylleLang/AquaPeelter; two
   contributors (Rylle + Roy). The remote is the thesis deliverable (barrier B2/B3).
 
@@ -300,10 +312,10 @@ New contributor? Follow [docs/SETUP.md](docs/SETUP.md) first.
 7. `notifyDeviceOffline/Online` unused; no heartbeat watchdog.
 8. `deviceAccess` lets every `owner` see every device; default role is `owner`.
 9. WiFi passwords stored in plaintext in `DeviceConfig`.
-10. Batch telemetry skips field validation; `SensorReading` TTL currently has an
-    **uncommitted change 90 → 180 days** in the working tree. MongoDB will not alter an
-    existing TTL index via `createIndex` (needs `collMod` / drop-recreate), and prod has
-    `autoIndex: false` — so the change is not live until applied manually on Atlas.
+10. Batch telemetry skips per-item field validation. Also: the `SensorReading` TTL was
+    changed 90 → 180 days in code, but MongoDB will not alter an existing TTL index via
+    `createIndex` and prod has `autoIndex: false` — the live Atlas index must be updated
+    manually with `collMod` (see `docs/SETUP.md` § Atlas TTL) or it stays at 90 days.
 11. `LineChart` uses hardcoded dark-theme colours, not `ThemeContext`.
 12. No automated tests; `jest` / `supertest` are installed but unused.
 13. `frontend/App.js.backup` is a stale leftover (gitignored by `*.backup`).
@@ -327,9 +339,13 @@ New contributor? Follow [docs/SETUP.md](docs/SETUP.md) first.
 - **Backend:** CommonJS, 2-space indent, single quotes, semicolons, `exports.fn = async
   (req, res) => {}` controllers with try/catch → `logger.error` + `{success:false, message}`.
   Section banners `// ----` in models. Winston `logger` — never `console.log`.
-- **Frontend:** functional components + hooks, inline style objects, theme colours via
-  `const { colors: C } = useTheme()`, Ionicons, `SafeAreaView edges={['top']}`,
-  `Alert.alert` for user errors, silent catch on polling.
+- **Frontend:** **strict TypeScript** (`tsconfig.json` extends `expo/tsconfig.base`,
+  `strict: true`; run `npx tsc --noEmit` in `frontend/` before every PR — it must pass
+  with zero errors). Functional components + hooks, inline style objects, theme colours
+  via `const { colors: C } = useTheme()`, Ionicons, `SafeAreaView edges={['top']}`,
+  `Alert.alert` for user errors, silent catch on polling. Shared types live in
+  `src/types/index.ts`; context hooks (`useAuth`, `useDevice`, `useTheme`) throw if used
+  outside their provider.
 - **Commits:** imperative summary line (see `git log`), no trailing period, optional body.
   Include the attribution trailer the harness supplies.
 - **Branching workflow (agreed 2026-09-15, two contributors):**

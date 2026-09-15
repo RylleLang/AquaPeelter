@@ -9,7 +9,7 @@ Takes about 20 minutes. Ask Rylle if anything here doesn't match what you see.
 |------|---------|-------|
 | Git | any recent | `git --version` |
 | Node.js | 18 or newer (20 LTS recommended) | `node --version` |
-| Expo Go app | latest, on your Android/iOS phone | Play Store / App Store |
+| Expo Go app | the version matching the project's Expo SDK (currently **57**) | Play Store / App Store |
 | Claude Code (optional) | latest | `claude --version` |
 
 You do **not** need MongoDB, Arduino IDE, or the ESP32 to work on the mobile app —
@@ -38,6 +38,11 @@ npx expo start
 Scan the QR code with Expo Go on your phone (phone and laptop must be on the same
 Wi‑Fi). The app connects to `https://aquafilter.onrender.com/api` automatically.
 
+If Expo Go says **"Project is incompatible with this version of Expo Go"**, the
+project's SDK (see `"expo"` in `frontend/package.json`) and your Expo Go version differ.
+Stock Expo Go only supports the newest SDK; older Android builds are at
+https://expo.dev/go. Do not upgrade the project SDK on your own — agree it first.
+
 Notes:
 - The Render backend is on a free tier — the **first request after idle can take
   30–60 s** and may time out once. Just retry.
@@ -58,7 +63,7 @@ It requires secrets that are **not in the repository**:
    through GitHub, chat, email, or a shared screen.
 3. `cd backend && npm run dev` → `http://localhost:5000/health` should return `ok`.
 4. To point the app at your local backend, temporarily change `BASE_URL` in
-   `frontend/src/api/client.js` to `http://<your-laptop-ip>:5000/api` — and **change
+   `frontend/src/api/client.ts` to `http://<your-laptop-ip>:5000/api` — and **change
    it back before committing**.
 
 Never commit `backend/.env`. It is gitignored; keep it that way.
@@ -112,7 +117,36 @@ Good habits:
 - If it says a feature is "planned" (Bluetooth, Guest Mode, water level), that is
   correct — do not let it describe those as implemented in thesis documents.
 
-## 7. Repository map (short)
+## 7. One-time: update the Atlas TTL index (data retention)
+
+`SensorReading` readings expire automatically via a MongoDB TTL index. The code sets
+this to **180 days**, but MongoDB will not change an index that already exists with a
+different value, and the production server runs with `autoIndex: false`. So the live
+database keeps the old **90-day** value until someone updates it by hand. Do this once,
+on the production cluster, from MongoDB Atlas:
+
+1. Atlas → your cluster → **Browse Collections** → database `aquafilter` →
+   collection `sensorreadings` → **Indexes** tab. Confirm there is an index on
+   `{ timestamp: 1 }` with `expireAfterSeconds: 7776000` (= 90 days).
+2. Open the **Atlas Shell** / `mongosh` connected to the cluster (Atlas → *Connect* →
+   *Shell*), then run:
+
+   ```javascript
+   use aquafilter
+   db.runCommand({
+     collMod: "sensorreadings",
+     index: { keyPattern: { timestamp: 1 }, expireAfterSeconds: 15552000 }
+   })
+   ```
+
+   `15552000` = 180 × 24 × 60 × 60. A reply of `{ ok: 1, expireAfterSeconds_old: 7776000,
+   expireAfterSeconds_new: 15552000 }` confirms it.
+3. Refresh the Indexes tab — it should now show `expireAfterSeconds: 15552000`.
+
+`collMod` only edits the index option; no data is touched and no downtime occurs.
+Record the date you did this in the thesis change log.
+
+## 8. Repository map (short)
 
 ```
 backend/     Express + MongoDB API (deployed on Render)

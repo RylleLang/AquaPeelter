@@ -30,7 +30,9 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# local env files — never commit any .env (see root CLAUDE.md barrier B1)
+.env
+.env.*
 .env*.local
 
 # typescript
