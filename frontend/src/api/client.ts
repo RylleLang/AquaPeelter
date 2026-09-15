@@ -2,6 +2,8 @@ import axios, { InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 import { storage } from '../utils/storage'; // Note: Ensure this uses expo-secure-store for tokens
 import { MaintenanceForm, MaintenanceRecord } from '../types';
 
+export type SamplePoint = 'pre-filter' | 'post-filter';
+
 // Deployed backend (Render) by default. For local backend testing only, create an
 // untracked frontend/.env with EXPO_PUBLIC_API_URL=http://<laptop-ip>:5000/api.
 // Do not change the default — see CLAUDE.md barrier B5.
@@ -64,11 +66,15 @@ export const sensorAPI = {
   getLatest: () => 
     client.get(`/sensors/${DEVICE_ID}/latest`),
   
-  getHistory: (params: { startDate?: string; endDate?: string; limit?: number }) => 
+  getHistory: (params: { startDate?: string; endDate?: string; limit?: number; samplePoint?: SamplePoint }) => 
     client.get(`/sensors/${DEVICE_ID}/history`, { params }),
   
-  getStats: (params: { startDate?: string; endDate?: string; limit?: number }) => 
+  getStats: (params: { startDate?: string; endDate?: string; samplePoint?: SamplePoint }) => 
     client.get(`/sensors/${DEVICE_ID}/averages`, { params }),
+
+  // Pre-filter vs post-filter averages + % improvement for a date range
+  compare: (params: { startDate: string; endDate: string }) => 
+    client.get(`/sensors/${DEVICE_ID}/compare`, { params }),
 };
 
 // --- Device Control ---
@@ -82,8 +88,16 @@ export const deviceAPI = {
   startCycle: () => 
     client.post(`/device/${DEVICE_ID}/cycle/start`),
   
+  // Toggles running <-> paused
   pauseCycle: () => 
     client.patch(`/device/${DEVICE_ID}/cycle/pause`),
+
+  // Ends the active cycle; response carries the computed summary
+  completeCycle: () => 
+    client.post(`/device/${DEVICE_ID}/cycle/complete`),
+
+  getCycles: (params: { limit?: number; skip?: number } = {}) => 
+    client.get(`/device/${DEVICE_ID}/cycles`, { params }),
 };
 
 // --- Config / WiFi ---

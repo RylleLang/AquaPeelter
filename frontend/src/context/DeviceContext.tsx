@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react';
 import { deviceAPI, sensorAPI } from '../api/client';
 import { useAuth } from './AuthContext';
+import { CycleStatus, CycleSummary } from '../types';
 
 export interface DeviceState {
   isOn: boolean;
-  cycleRunning: boolean;
+  cycleStatus: CycleStatus;   // idle | running | paused | completed
+  cycleRunning: boolean;      // derived: cycleStatus === 'running'
   cycleProgress: number;      // 0–100%
   elapsedSeconds: number;
   filterCycleCount: number;
@@ -25,7 +27,8 @@ interface DeviceContextType {
   loading: boolean;
   togglePower: () => Promise<void>;
   startCycle: () => Promise<void>;
-  pauseCycle: () => Promise<void>;
+  pauseCycle: () => Promise<void>;          // toggles running <-> paused
+  completeCycle: () => Promise<CycleSummary>;
   fetchState: () => Promise<void>;
 }
 
@@ -38,6 +41,7 @@ export const DeviceProvider = ({ children }: { children: ReactNode }) => {
   
   const [deviceState, setDeviceState] = useState<DeviceState>({
     isOn: false,
+    cycleStatus: 'idle',
     cycleRunning: false,
     cycleProgress: 0,
     elapsedSeconds: 0,
@@ -69,10 +73,20 @@ export const DeviceProvider = ({ children }: { children: ReactNode }) => {
       // Map backend DeviceState fields → frontend shape
       const state = stateRes.data?.data;
       if (state) {
+        const status: CycleStatus = state.cycleStatus ?? 'idle';
+        // activeCycleId is populated with startedAt, so elapsed time survives app reloads
+        const startedAt: string | undefined = state.activeCycleId?.startedAt;
         setDeviceState((prev) => ({
           ...prev,
           isOn: state.isPoweredOn ?? prev.isOn,
-          cycleRunning: state.cycleStatus === 'running',
+          cycleStatus: status,
+          cycleRunning: status === 'running',
+          elapsedSeconds:
+            status === 'running' && startedAt
+              ? Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000))
+              : status === 'paused'
+                ? prev.elapsedSeconds
+                : 0,
           filterHealthPct: state.filterHealthPercent ?? prev.filterHealthPct,
           filterCycleCount: state.cyclesSinceLastService ?? prev.filterCycleCount,
         }));
@@ -132,12 +146,11 @@ export const DeviceProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
       const { data } = await deviceAPI.startCycle();
-      const state = data?.data;
+      const status: CycleStatus = data?.data?.cycleStatus ?? 'running';
       setDeviceState((prev) => ({
         ...prev,
-        cycleRunning: state?.cycleStatus === 'running',
-        filterHealthPct: state?.filterHealthPercent ?? prev.filterHealthPct,
-        filterCycleCount: state?.cyclesSinceLastService ?? prev.filterCycleCount,
+        cycleStatus: status,
+        cycleRunning: status === 'running',
         elapsedSeconds: 0,
       }));
     } finally {
@@ -149,13 +162,31 @@ export const DeviceProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
       const { data } = await deviceAPI.pauseCycle();
-      const state = data?.data;
+      const status: CycleStatus = data?.data?.cycleStatus ?? 'paused';
       setDeviceState((prev) => ({
         ...prev,
-        cycleRunning: state?.cycleStatus === 'running',
-        filterHealthPct: state?.filterHealthPercent ?? prev.filterHealthPct,
-        filterCycleCount: state?.cyclesSinceLastService ?? prev.filterCycleCount,
+        cycleStatus: status,
+        cycleRunning: status === 'running',
       }));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Ends the active cycle (running or paused). The backend aggregates the cycle's
+  // pre/post readings and returns the summary; filter health is refreshed by the next poll.
+  const completeCycle = async (): Promise<CycleSummary> => {
+    setLoading(true);
+    try {
+      const { data } = await deviceAPI.completeCycle();
+      setDeviceState((prev) => ({
+        ...prev,
+        cycleStatus: 'completed',
+        cycleRunning: false,
+        elapsedSeconds: 0,
+      }));
+      fetchState();
+      return (data?.data?.summary ?? {}) as CycleSummary;
     } finally {
       setLoading(false);
     }
@@ -163,7 +194,7 @@ export const DeviceProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <DeviceContext.Provider
-      value={{ deviceState, sensorData, esp32Online, loading, togglePower, startCycle, pauseCycle, fetchState }}
+      value={{ deviceState, sensorData, esp32Online, loading, togglePower, startCycle, pauseCycle, completeCycle, fetchState }}
     >
       {children}
     </DeviceContext.Provider>

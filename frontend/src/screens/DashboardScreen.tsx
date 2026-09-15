@@ -10,6 +10,8 @@ import { useAuth } from '../context/AuthContext';
 import { ThemeColors, useTheme } from '../context/ThemeContext';
 import { notify } from '../utils/notifications';
 import { configAPI } from '../api/client';
+import CycleSummaryView from '../components/CycleSummaryView';
+import { CycleSummary } from '../types';
 
 // Define the shape of the WiFi network objects
 interface Network {
@@ -66,11 +68,12 @@ const signalIcon = (rssi?: number): React.ComponentProps<typeof Ionicons>['name'
 };
 
 export default function DashboardScreen() {
-    const { deviceState, sensorData, esp32Online, loading, startCycle, pauseCycle } = useDevice();
+    const { deviceState, sensorData, esp32Online, loading, startCycle, pauseCycle, completeCycle } = useDevice();
     const { user, logout } = useAuth();
     const { colors: C, isDark, toggleTheme } = useTheme();
 
-    const { cycleRunning, cycleProgress, elapsedSeconds, filterHealthPct, filterCycleCount } = deviceState;
+    const { cycleStatus, cycleRunning, cycleProgress, elapsedSeconds, filterHealthPct, filterCycleCount } = deviceState;
+    const cycleActive = cycleStatus === 'running' || cycleStatus === 'paused';
     const { ph, turbidity, tds } = sensorData;
 
     // WiFi modal state
@@ -81,6 +84,7 @@ export default function DashboardScreen() {
     const [password, setPassword]         = useState<string>('');
     const [showPass, setShowPass]         = useState<boolean>(false);
     const [wifiLoading, setWifiLoading]   = useState<boolean>(false);
+    const [cycleResult, setCycleResult]   = useState<CycleSummary | null>(null);
     
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -100,16 +104,42 @@ export default function DashboardScreen() {
         }
     }, [wifiModal]);
 
-    // Start/Pause must surface backend errors (e.g. 409 "already running")
+    // Cycle controls must surface backend errors (e.g. 409 "already running")
     // instead of failing silently — the context helpers rethrow on purpose.
-    const handleCycleToggle = async () => {
+    const errorMessage = (err: unknown) => {
+        const e = err as { response?: { data?: { message?: string } }; message?: string };
+        return e.response?.data?.message ?? e.message ?? 'Please try again.';
+    };
+
+    // idle/completed → start; running → pause; paused → resume (pause endpoint toggles)
+    const handleCyclePrimary = async () => {
         try {
-            await (cycleRunning ? pauseCycle() : startCycle());
+            await (cycleActive ? pauseCycle() : startCycle());
         } catch (err) {
-            const e = err as { response?: { data?: { message?: string } }; message?: string };
-            const message = e.response?.data?.message ?? e.message ?? 'Please try again.';
-            Alert.alert(cycleRunning ? 'Could not pause cycle' : 'Could not start cycle', message);
+            Alert.alert(cycleActive ? 'Could not update cycle' : 'Could not start cycle', errorMessage(err));
         }
+    };
+
+    const handleFinishCycle = () => {
+        Alert.alert(
+            'Finish this cycle?',
+            'The cycle will be marked complete and its filtration result computed from the readings recorded so far.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Finish',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            const summary = await completeCycle();
+                            setCycleResult(summary);
+                        } catch (err) {
+                            Alert.alert('Could not finish cycle', errorMessage(err));
+                        }
+                    },
+                },
+            ]
+        );
     };
 
     const handleScan = async () => {
@@ -218,9 +248,9 @@ export default function DashboardScreen() {
                 <View style={card}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                         <Text style={{ fontSize: 15, fontWeight: '700', color: C.text }}>Filtration Cycle</Text>
-                        <View style={{ backgroundColor: cycleRunning ? C.success + '20' : C.border + '40', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4 }}>
-                            <Text style={{ fontSize: 11, fontWeight: '700', color: cycleRunning ? C.success : C.muted }}>
-                                {cycleRunning ? 'RUNNING' : 'IDLE'}
+                        <View style={{ backgroundColor: cycleRunning ? C.success + '20' : cycleStatus === 'paused' ? C.warning + '20' : C.border + '40', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4 }}>
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: cycleRunning ? C.success : cycleStatus === 'paused' ? C.warning : C.muted }}>
+                                {cycleRunning ? 'RUNNING' : cycleStatus === 'paused' ? 'PAUSED' : 'IDLE'}
                             </Text>
                         </View>
                     </View>
@@ -239,14 +269,24 @@ export default function DashboardScreen() {
                         </View>
                     </View>
 
-                    <TouchableOpacity style={{
-                            flexDirection: 'row', backgroundColor: C.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 8
-                        }} onPress={handleCycleToggle} disabled={loading}>
-                        <Ionicons name={cycleRunning ? 'pause-circle' : 'play-circle'} size={22} color="#fff" />
-                        <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>
-                            {cycleRunning ? 'Pause Cycle' : 'Start Cycle'}
-                        </Text>
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+                        <TouchableOpacity style={{
+                                flex: 1, flexDirection: 'row', backgroundColor: C.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', gap: 8
+                            }} onPress={handleCyclePrimary} disabled={loading}>
+                            <Ionicons name={cycleRunning ? 'pause-circle' : 'play-circle'} size={22} color="#fff" />
+                            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>
+                                {cycleRunning ? 'Pause' : cycleStatus === 'paused' ? 'Resume' : 'Start Cycle'}
+                            </Text>
+                        </TouchableOpacity>
+                        {cycleActive && (
+                            <TouchableOpacity style={{
+                                    flex: 1, flexDirection: 'row', backgroundColor: C.card, borderWidth: 1, borderColor: C.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', gap: 8
+                                }} onPress={handleFinishCycle} disabled={loading}>
+                                <Ionicons name="checkmark-done-circle" size={22} color={C.primary} />
+                                <Text style={{ color: C.primary, fontWeight: '700', fontSize: 15 }}>Finish</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
                 </View>
 
                 {/* ── Sensor Readings ── */}
@@ -291,6 +331,30 @@ export default function DashboardScreen() {
                 </View>
 
             </ScrollView>
+
+            {/* ── Cycle Result Modal ── */}
+            <Modal visible={cycleResult !== null} animationType="fade" transparent onRequestClose={() => setCycleResult(null)}>
+                <View style={{ flex: 1, backgroundColor: C.modalOverlay, justifyContent: 'center', padding: 24 }}>
+                    <View style={{ backgroundColor: C.card, borderRadius: 24, borderWidth: 1, borderColor: C.border, padding: 24 }}>
+                        <View style={{ alignItems: 'center', marginBottom: 18 }}>
+                            <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: C.success + '20', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                                <Ionicons name="checkmark-done" size={28} color={C.success} />
+                            </View>
+                            <Text style={{ fontSize: 18, fontWeight: '800', color: C.text }}>Cycle Complete</Text>
+                            <Text style={{ fontSize: 12, color: C.muted, marginTop: 4, textAlign: 'center' }}>
+                                Average pre-filter → post-filter readings for this cycle
+                            </Text>
+                        </View>
+                        {cycleResult && <CycleSummaryView summary={cycleResult} C={C} />}
+                        <TouchableOpacity
+                            style={{ backgroundColor: C.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginTop: 22 }}
+                            onPress={() => setCycleResult(null)}
+                        >
+                            <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>Done</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
 
             {/* ── WiFi Modal (Android-style network list) ── */}
             <Modal visible={wifiModal} animationType="slide" transparent onRequestClose={() => setWifiModal(false)}>
