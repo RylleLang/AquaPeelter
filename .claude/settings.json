@@ -13,10 +13,7 @@
       "Bash(npm start*)",
       "Bash(npx expo start*)",
       "Bash(node -e*)",
-      "Bash(node --check*)",
-      "Bash(git checkout *)",
-      "Bash(git pull *)",
-      "Bash(git stash *)"
+      "Bash(node --check*)"
     ],
     "deny": [
       "Read(./backend/.env)",
