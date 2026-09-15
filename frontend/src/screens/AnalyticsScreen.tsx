@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
   ActivityIndicator,
@@ -6,55 +6,95 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { sensorAPI } from '../api/client';
-import { useTheme } from '../context/ThemeContext';
+import { ThemeColors, useTheme } from '../context/ThemeContext';
 import LineChart from '../components/LineChart';
 
-const RANGES = ['1h', '6h', '24h', '7d'];
+type Range = '1h' | '6h' | '24h' | '7d';
+type SensorField = 'ph' | 'turbidity' | 'tds';
 
-const StatBadge = ({ label, value, unit, color, C }) => (
-  <View style={{ alignItems: 'center', flex: 1 }}>
-    <View style={{ backgroundColor: color + '18', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 10, alignItems: 'center', width: '100%', borderWidth: 1, borderColor: color + '35' }}>
-      <Text style={{ fontSize: 24, fontWeight: '800', color }}>
-        {value ?? '--'}
-      </Text>
-      <Text style={{ fontSize: 11, color, fontWeight: '600', marginTop: 2 }}>{unit || 'pH'}</Text>
+const RANGES: Range[] = ['1h', '6h', '24h', '7d'];
+
+interface Reading {
+  ph?: number;
+  turbidity?: number;
+  tds?: number;
+  createdAt?: string;
+  timestamp?: string;
+}
+
+interface Stats {
+  avgPh?: number;
+  avgTurbidity?: number;
+  avgTds?: number;
+}
+
+interface StatBadgeProps {
+  label: string;
+  value?: string | number | null;
+  unit?: string;
+  color: string;
+  C: ThemeColors;
+}
+
+function StatBadge({ label, value, unit, color, C }: StatBadgeProps) {
+  return (
+    <View style={{ alignItems: 'center', flex: 1 }}>
+      <View style={{ backgroundColor: color + '18', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 10, alignItems: 'center', width: '100%', borderWidth: 1, borderColor: color + '35' }}>
+        <Text style={{ fontSize: 24, fontWeight: '800', color }}>
+          {value ?? '--'}
+        </Text>
+        <Text style={{ fontSize: 11, color, fontWeight: '600', marginTop: 2 }}>{unit || 'pH'}</Text>
+      </View>
+      <Text style={{ color: C.muted, fontSize: 11, marginTop: 8, fontWeight: '500' }}>{label}</Text>
     </View>
-    <Text style={{ color: C.muted, fontSize: 11, marginTop: 8, fontWeight: '500' }}>{label}</Text>
-  </View>
-);
+  );
+}
 
 export default function AnalyticsScreen() {
   const { colors: C } = useTheme();
-  const [range, setRange] = useState('24h');
-  const [readings, setReadings] = useState([]);
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(false);
+  
+  const [range, setRange] = useState<Range>('24h');
+  const [readings, setReadings] = useState<Reading[]>([]);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
 
-  const rangeToMs = { '1h': 3600000, '6h': 21600000, '24h': 86400000, '7d': 604800000 };
+  const rangeToMs: Record<Range, number> = { 
+    '1h': 3600000, 
+    '6h': 21600000, 
+    '24h': 86400000, 
+    '7d': 604800000 
+  };
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const endDate   = new Date().toISOString();
+      const endDate = new Date().toISOString();
       const startDate = new Date(Date.now() - (rangeToMs[range] || 86400000)).toISOString();
 
       const [histRes, statRes] = await Promise.all([
         sensorAPI.getHistory({ startDate, endDate, limit: 50 }),
         sensorAPI.getStats({ startDate, endDate }),
       ]);
+      
       setReadings(histRes.data?.data || []);
       setStats(statRes.data?.data);
-    } catch (err) {
-      console.warn('Analytics fetch error:', err.message);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      console.warn('Analytics fetch error:', errorMessage);
     } finally {
       setLoading(false);
     }
   }, [range]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { 
+    fetchData(); 
+  }, [fetchData]);
 
-  const toChartData = (field) =>
-    [...readings].reverse().map((r) => ({ value: r[field] ?? 0, timestamp: r.createdAt || r.timestamp }));
+  const toChartData = (field: SensorField) =>
+    [...readings].reverse().map((r) => ({ 
+      value: r[field] ?? 0, 
+      timestamp: r.createdAt || r.timestamp || '' 
+    }));
 
   const card = {
     backgroundColor: C.card, borderRadius: 18, padding: 18,

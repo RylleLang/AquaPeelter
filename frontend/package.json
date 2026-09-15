@@ -1,7 +1,7 @@
 {
   "name": "aquafilter-mobile",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "index.ts",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
@@ -31,6 +31,8 @@
     "react-native-web": "^0.21.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.24.0"
+    "@babel/core": "^7.24.0",
+    "@types/react": "~19.1.10",
+    "typescript": "~5.9.2"
   }
 }

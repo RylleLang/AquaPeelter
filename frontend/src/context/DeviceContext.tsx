@@ -1,32 +1,62 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react';
 import { deviceAPI, sensorAPI } from '../api/client';
 import { useAuth } from './AuthContext';
 
-const DeviceContext = createContext(null);
+export interface DeviceState {
+  isOn: boolean;
+  cycleRunning: boolean;
+  cycleProgress: number;      // 0–100%
+  elapsedSeconds: number;
+  filterCycleCount: number;
+  filterHealthPct: number;
+}
+
+export interface SensorData {
+  ph: number | null;
+  turbidity: number | null;
+  tds: number | null;
+  timestamp: string | null;
+}
+
+interface DeviceContextType {
+  deviceState: DeviceState;
+  sensorData: SensorData;
+  esp32Online: boolean;
+  loading: boolean;
+  togglePower: () => Promise<void>;
+  startCycle: () => Promise<void>;
+  pauseCycle: () => Promise<void>;
+  fetchState: () => Promise<void>;
+}
+
+const DeviceContext = createContext<DeviceContextType | null>(null);
 
 const POLL_INTERVAL_MS = 5000; // 5s real-time polling
 
-export const DeviceProvider = ({ children }) => {
+export const DeviceProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
-  const [deviceState, setDeviceState] = useState({
+  
+  const [deviceState, setDeviceState] = useState<DeviceState>({
     isOn: false,
     cycleRunning: false,
-    cycleProgress: 0,      // 0–100%
+    cycleProgress: 0,
     elapsedSeconds: 0,
     filterCycleCount: 0,
     filterHealthPct: 100,
   });
-  const [sensorData, setSensorData] = useState({
+  
+  const [sensorData, setSensorData] = useState<SensorData>({
     ph: null,
     turbidity: null,
     tds: null,
     timestamp: null,
   });
-  const [esp32Online, setEsp32Online] = useState(false);
-  const [loading, setLoading] = useState(false);
+  
+  const [esp32Online, setEsp32Online] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(false);
 
-  const timerRef = useRef(null);
-  const pollRef = useRef(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // --- Polling ---
   const fetchState = useCallback(async () => {
@@ -68,7 +98,9 @@ export const DeviceProvider = ({ children }) => {
     if (!user) return;
     fetchState();
     pollRef.current = setInterval(fetchState, POLL_INTERVAL_MS);
-    return () => clearInterval(pollRef.current);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
   }, [user, fetchState]);
 
   // --- Local elapsed timer ---
@@ -78,9 +110,11 @@ export const DeviceProvider = ({ children }) => {
         setDeviceState((prev) => ({ ...prev, elapsedSeconds: prev.elapsedSeconds + 1 }));
       }, 1000);
     } else {
-      clearInterval(timerRef.current);
+      if (timerRef.current) clearInterval(timerRef.current);
     }
-    return () => clearInterval(timerRef.current);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, [deviceState.cycleRunning]);
 
   // --- Controls ---
@@ -101,7 +135,7 @@ export const DeviceProvider = ({ children }) => {
       const state = data?.data;
       setDeviceState((prev) => ({
         ...prev,
-        cycleRunning: state?.cycleStatus === 'running' ?? true,
+        cycleRunning: state?.cycleStatus === 'running',
         filterHealthPct: state?.filterHealthPercent ?? prev.filterHealthPct,
         filterCycleCount: state?.cyclesSinceLastService ?? prev.filterCycleCount,
         elapsedSeconds: 0,
@@ -118,7 +152,7 @@ export const DeviceProvider = ({ children }) => {
       const state = data?.data;
       setDeviceState((prev) => ({
         ...prev,
-        cycleRunning: state?.cycleStatus === 'running' ?? false,
+        cycleRunning: state?.cycleStatus === 'running',
         filterHealthPct: state?.filterHealthPercent ?? prev.filterHealthPct,
         filterCycleCount: state?.cyclesSinceLastService ?? prev.filterCycleCount,
       }));
@@ -136,4 +170,8 @@ export const DeviceProvider = ({ children }) => {
   );
 };
 
-export const useDevice = () => useContext(DeviceContext);
+export const useDevice = () => {
+  const context = useContext(DeviceContext);
+  if (!context) throw new Error('useDevice must be used within a DeviceProvider');
+  return context;
+};

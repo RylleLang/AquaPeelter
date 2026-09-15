@@ -1,9 +1,28 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 
 const C = { muted: '#718096', border: '#1A3050', bg: '#0A1628' };
 
-export default function LineChart({ data = [], color = '#00D4FF', unit = '', height = 120, label = '' }) {
+export interface DataPoint {
+  value: number;
+  timestamp?: string;
+}
+
+interface LineChartProps {
+  data?: DataPoint[];
+  color?: string;
+  unit?: string;
+  height?: number;
+  label?: string;
+}
+
+export default function LineChart({ 
+  data = [], 
+  color = '#00D4FF', 
+  unit = '', 
+  height = 120, 
+  label = '' 
+}: LineChartProps) {
   if (!data.length) {
     return (
       <View style={[styles.container, { height }]}>
@@ -51,6 +70,7 @@ export default function LineChart({ data = [], color = '#00D4FF', unit = '', hei
           const dy = next.y - p.y;
           const length = Math.sqrt(dx * dx + dy * dy);
           const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+          
           return (
             <View
               key={i}
@@ -62,7 +82,9 @@ export default function LineChart({ data = [], color = '#00D4FF', unit = '', hei
                 height: 2,
                 backgroundColor: color,
                 opacity: 0.85,
-                transformOrigin: 'left center',
+                // Cast required as older @types/react-native definitions 
+                // sometimes lag behind native transformOrigin support
+                transformOrigin: 'left center' as any,
                 transform: [{ rotate: `${angle}deg` }],
               }}
             />

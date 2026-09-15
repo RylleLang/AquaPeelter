@@ -66,7 +66,7 @@ you are proceeding on their instruction and do it.
 - **Stack:** ESP32 NodeMCU → Node.js/Express + MongoDB (Mongoose) on Render →
   React Native (Expo SDK 54) mobile app. Push via Expo Push API.
 - **Single-device prototype:** `deviceId = esp32-aquafilter-001` is hardcoded in
-  [frontend/src/api/client.js](frontend/src/api/client.js) and used as the telemetry fallback.
+  [frontend/src/api/client.ts](frontend/src/api/client.ts) and used as the telemetry fallback.
 - **Roles:** `owner` (default on register), `technician`, `viewer`.
 
 ---
@@ -91,14 +91,14 @@ Software/
 │       ├── routes/   auth, telemetry, sensor, device, maintenance, config
 │       └── services/ notificationService.js, filterHealthService.js
 └── frontend/                 ← Expo app  (npx expo start)
-    ├── App.js, index.js, app.json, eas.json, babel.config.js
+    ├── App.tsx, index.ts, tsconfig.json, app.json, eas.json, babel.config.js
     └── src/
-        ├── api/client.js         ← axios instance + all API wrappers
+        ├── api/client.ts         ← axios instance + all API wrappers
         ├── context/  AuthContext, DeviceContext (5 s polling), ThemeContext
-        ├── navigation/AppNavigator.js  ← Login stack → 4 bottom tabs
+        ├── navigation/AppNavigator.tsx ← Login stack → 4 bottom tabs
         ├── screens/  Login, Dashboard, Analytics, Alerts, Maintenance
-        ├── components/LineChart.js     ← SVG-free polyline made of Views
-        └── utils/    storage.js (SecureStore/AsyncStorage), notifications.js
+        ├── components/LineChart.tsx    ← SVG-free polyline made of Views
+        └── utils/    storage.ts (SecureStore/AsyncStorage), notifications.ts
 ```
 
 ---
@@ -203,7 +203,7 @@ All responses are `{ success: boolean, ... }`. `:deviceId` routes use `mergePara
 
 ## 5. Frontend reference (Expo SDK 54, RN 0.81, React 19)
 
-- **Entry:** `App.js` loads Ionicons font, suppresses the Expo Go push warning, wraps
+- **Entry:** `App.tsx` loads Ionicons font, suppresses the Expo Go push warning, wraps
   `GestureHandlerRootView > SafeAreaProvider > ThemeProvider > AuthProvider > AppNavigator`.
 - **Navigation:** native stack `Login` ⇄ `Main`; `Main` = bottom tabs
   Dashboard / Analytics / Alerts / Maintenance, wrapped in `DeviceProvider`.
@@ -328,9 +328,13 @@ New contributor? Follow [docs/SETUP.md](docs/SETUP.md) first.
 - **Backend:** CommonJS, 2-space indent, single quotes, semicolons, `exports.fn = async
   (req, res) => {}` controllers with try/catch → `logger.error` + `{success:false, message}`.
   Section banners `// ----` in models. Winston `logger` — never `console.log`.
-- **Frontend:** functional components + hooks, inline style objects, theme colours via
-  `const { colors: C } = useTheme()`, Ionicons, `SafeAreaView edges={['top']}`,
-  `Alert.alert` for user errors, silent catch on polling.
+- **Frontend:** **strict TypeScript** (`tsconfig.json` extends `expo/tsconfig.base`,
+  `strict: true`; run `npx tsc --noEmit` in `frontend/` before every PR — it must pass
+  with zero errors). Functional components + hooks, inline style objects, theme colours
+  via `const { colors: C } = useTheme()`, Ionicons, `SafeAreaView edges={['top']}`,
+  `Alert.alert` for user errors, silent catch on polling. Shared types live in
+  `src/types/index.ts`; context hooks (`useAuth`, `useDevice`, `useTheme`) throw if used
+  outside their provider.
 - **Commits:** imperative summary line (see `git log`), no trailing period, optional body.
   Include the attribution trailer the harness supplies.
 - **Branching workflow (agreed 2026-09-15, two contributors):**
