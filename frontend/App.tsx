@@ -1,3 +1,5 @@
+import './global.css';
+
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 
@@ -21,6 +23,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { AuthProvider } from './src/context/AuthContext';
 import { ThemeProvider } from './src/context/ThemeContext';
+import { DeviceProvider } from './src/context/DeviceContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import { registerForPushNotifications } from './src/utils/notifications';
 
@@ -50,7 +53,9 @@ export default function App() {
       <SafeAreaProvider>
         <ThemeProvider>
           <AuthProvider>
-            <AppNavigator />
+            <DeviceProvider>
+              <AppNavigator />
+            </DeviceProvider>
           </AuthProvider>
         </ThemeProvider>
       </SafeAreaProvider>

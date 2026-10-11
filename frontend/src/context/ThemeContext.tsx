@@ -38,7 +38,7 @@ const LIGHT: ThemeColors = {
   primaryDeep:       '#15803D',
   text:              '#0F172A',
   muted:             '#64748B',
-  border:            '#E2E8F0',
+  border:            '#d5d9e0',
   inputBg:           '#F1F5F9',
   success:           '#16A34A',
   warning:           '#D97706',

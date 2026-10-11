@@ -19,10 +19,12 @@ import CyclesScreen from '../screens/CyclesScreen';
 import AlertsScreen from '../screens/AlertsScreen';
 import MaintenanceScreen from '../screens/MaintenanceScreen';
 import ServerWakeScreen from '../screens/ServerWakeScreen';
+import WifiDiscoveryScreen from '../screens/WifiDiscoveryScreen';
 
 // 1. Define the parameters for each route in your Stacks and Tabs
 export type RootStackParamList = {
   Login: undefined;
+  WifiDiscovery: undefined;
   Main: undefined;
 };
 
@@ -103,7 +105,7 @@ const MainTabs = () => {
 };
 
 export default function AppNavigator() {
-  const { user, loading, serverStatus } = useAuth();
+  const { user, isGuest, loading, serverStatus } = useAuth();
   const { colors: C, isDark } = useTheme();
 
   if (loading) {
@@ -125,15 +127,12 @@ export default function AppNavigator() {
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {user ? (
-          <Stack.Screen name="Main">
-            {() => (
-              <DeviceProvider>
-                <MainTabs />
-              </DeviceProvider>
-            )}
-          </Stack.Screen>
+          <Stack.Screen name="Main" component={MainTabs}/>
         ) : (
-          <Stack.Screen name="Login" component={LoginScreen} />
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="WifiDiscovery" component={WifiDiscoveryScreen} />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>
