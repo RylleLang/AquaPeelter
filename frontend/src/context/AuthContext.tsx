@@ -15,12 +15,14 @@ export type ServerStatus = 'checking' | 'online' | 'unreachable';
 
 interface AuthContextType {
   user: User | null;
+  isGuest: boolean;
   loading: boolean;
   serverStatus: ServerStatus;
   retryConnection: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
+  loginAsGuest: () => Promise<void>;
 }
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -28,6 +30,10 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Define current user profile loaded, or null at start (default)
   const [user, setUser] = useState<User | null>(null);
+
+  // Define if current user, governs how data is stored, not connected to cloud
+  const [isGuest, setIsGuest] = useState<boolean>(false);
+
   // Define state of the app when processing authentication, default to 'loading' at launch
   const [loading, setLoading] = useState<boolean>(true);
   // Backend reachability — the hosted API sleeps when idle and takes up to a minute to wake
@@ -49,10 +55,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const loginAsGuest = async () => {
+    await storage.setItem('guestMode', 'true');
+    setIsGuest(true);
+  }
+
   // On app launch, rehydrate session. A network failure must NOT log the user out —
   // only a rejected token (401) does. The interceptor already clears the token on 401.
   const rehydrate = async () => {
     try {
+      // Check for Guest Mode first
+      const guestFlag = await storage.getItem('guestMode');
+      if (guestFlag === 'true') {
+        setIsGuest(true);
+        setServerStatus('online');
+        return; // Skip the token check entirely
+      }
+
+      // Otherwise, check for normal JWT auth
       const token = await storage.getItem('authToken');
       if (token) {
         const { data } = await authAPI.me();
@@ -102,11 +122,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await storage.deleteItem('pushToken');
     }
     await storage.deleteItem('authToken');
+    await storage.deleteItem('guestMode');
     setUser(null);
+    setIsGuest(false);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, serverStatus, retryConnection, login, logout, register }}>
+    <AuthContext.Provider value={{ user, isGuest, loading, serverStatus, retryConnection, login, loginAsGuest, logout, register }}>
       {children}
     </AuthContext.Provider>
   );

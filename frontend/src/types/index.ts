@@ -72,3 +72,11 @@ export interface CompareResult {
         tds: number | null;
     };
 }
+
+// Define device type for guest mode to store last locally connected filtration device
+export interface StoredDevice {
+  deviceId: string;    // Unique identifier/MAC provided by ESP32 (e.g., "AQUAPEEL_A1B2")
+  ip: string;          // Last resolved local IP (e.g., "192.168.1.145")
+  name?: string;       // Friendly label
+  lastConnected: string;
+}
