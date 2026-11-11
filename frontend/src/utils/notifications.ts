@@ -22,7 +22,6 @@ export const registerForPushNotifications = async (): Promise<string | null> => 
   // By default, push notifications are muted when app is on the foreground
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
-      shouldShowAlert: true,
       shouldPlaySound: true,
       shouldSetBadge: true,
       shouldShowBanner: true,

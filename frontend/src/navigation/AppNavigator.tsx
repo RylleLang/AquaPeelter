@@ -5,6 +5,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, View, Text } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Contexts (These will need their own TypeScript interfaces later)
 import { useAuth } from '../context/AuthContext';
@@ -59,6 +60,7 @@ const TAB_CONFIG: TabConfig = {
 };
 
 const MainTabs = () => {
+  const insets = useSafeAreaInsets();
   const { colors: C } = useTheme();
 
   return (
@@ -69,8 +71,8 @@ const MainTabs = () => {
           backgroundColor: C.tabBar,
           borderTopColor: C.tabBorder,
           borderTopWidth: 1,
-          height: 64,
-          paddingBottom: 8,
+          height: 70 + insets.bottom,
+          paddingBottom: insets.bottom,
           paddingTop: 8,
         },
         tabBarActiveTintColor: C.primary,
@@ -126,7 +128,7 @@ export default function AppNavigator() {
     <NavigationContainer>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {user ? (
+        {(user || isGuest) ? (
           <Stack.Screen name="Main" component={MainTabs}/>
         ) : (
           <>

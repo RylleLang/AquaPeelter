@@ -119,7 +119,6 @@ export default function WifiDiscoveryScreen({ navigation }: any) {
 
         await loginAsGuest();
         await setConnectedDevice(newDevice);
-        navigation.replace('Dashboard');
       }
     });
 
@@ -149,7 +148,7 @@ export default function WifiDiscoveryScreen({ navigation }: any) {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top', 'bottom']}>
       {/* Top Header / Return Button */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 10 }}>
         <TouchableOpacity

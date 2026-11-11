@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { isNetworkError } from '../api/client';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -29,6 +30,8 @@ type LoginScreenProps = {
 type Mode = 'login' | 'register';
 
 export default function LoginScreen({ navigation }: LoginScreenProps) {
+  const insets = useSafeAreaInsets();
+
   // Initialize ref for Onboarding/Login Pages handler
   const pagerRef = useRef<PagerView>(null);
   const [ currentPage, setCurrentPage ] = useState(0); // Hold current page index in PagerView
@@ -146,14 +149,14 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         ref={pagerRef}
       >
         {/* Page #1: Onboarding/Intro (View) */}
-        <View className='pt-10 relative' key={0}>
+        <View className='pt-10 relative flex flex-col' style={{top: insets.top }} key={0}>
           <Text className='text-4xl text-center mt-20 font-semibold' style={{color: C.text}}>Get Started!</Text>
-          <Text className='text-lg text-center my-4 mx-10 leading-1' style={{ color: C.muted }}>
+          <Text className='text-lg text-center my-14 mx-10 leading-1' style={{ color: C.muted }}>
             Lorem ipsum dolor sit amet, consectetuer adipiscing elit
           </Text>
 
           {/* Ask for two options: (1) Continue as Guest, (2) Log in with an account*/}
-          <View className='absolute w-full inset-x-0 bottom-16 px-8 gap-4'>
+          <View className='absolute w-full inset-x-0 bottom-16 px-8 gap-4' style={{ bottom: insets.bottom + 40 }}>
             {/* Button 1: Continue as Guest */}
             <TouchableOpacity className='rounded-2xl py-5 items-center border'
               style={{ borderColor: C.muted }} onPress={handleGuestPress} disabled={loading}
@@ -180,126 +183,132 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
           </View>
         </View>
         {/* Page #2: Login/Register (ScrollView) */}
-        <ScrollView key={1}
-          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24 }}
-          keyboardShouldPersistTaps="handled"
+        <KeyboardAvoidingView 
+          key={1} 
+          style={{ flex: 1 }} 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-          
+          <ScrollView key={1}
+            contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24, paddingBottom: insets.bottom + 24, paddingTop: insets.top }}
+            keyboardShouldPersistTaps="handled"
+          >
+            
 
-          {/* Logo */}
-          <View style={{ alignItems: 'center', marginBottom: 40 }}>
-            <View style={{ width: 90, height: 90, borderRadius: 28, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
-              <Ionicons name="water" size={48} color={C.primary} />
-            </View>
-            <Text style={{ fontSize: 34, fontWeight: '800', color: C.text, letterSpacing: -0.5 }}>AquaPeelter</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
-              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: C.primary }} />
-              <Text style={{ fontSize: 13, color: C.muted }}>Laundry Wastewater Filtration System</Text>
-              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: C.primary }} />
-            </View>
-          </View>
-
-          {/* Card */}
-          <View style={{ backgroundColor: C.card, borderRadius: 20, padding: 24, borderWidth: 1, borderColor: C.border }}>
-
-            {/* Tab switcher */}
-            <View style={{ flexDirection: 'row', backgroundColor: C.inputBg, borderRadius: 12, padding: 4, marginBottom: 24 }}>
-              {(['login', 'register'] as Mode[]).map((m) => (
-                <TouchableOpacity
-                  key={m}
-                  style={{ flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', backgroundColor: mode === m ? C.primary : 'transparent' }}
-                  onPress={() => { setMode(m); setError(''); }}
-                >
-                  <Text style={{ color: mode === m ? '#fff' : C.muted, fontWeight: '700', fontSize: 14 }}>
-                    {m === 'login' ? 'Sign In' : 'Register'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            {/* Logo */}
+            <View style={{ alignItems: 'center', marginBottom: 40 }}>
+              <View style={{ width: 90, height: 90, borderRadius: 28, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+                <Ionicons name="water" size={48} color={C.primary} />
+              </View>
+              <Text style={{ fontSize: 34, fontWeight: '800', color: C.text, letterSpacing: -0.5 }}>AquaPeelter</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: C.primary }} />
+                <Text style={{ fontSize: 13, color: C.muted }}>Laundry Wastewater Filtration System</Text>
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: C.primary }} />
+              </View>
             </View>
 
-            {/* User Credential Fields --> KeyboardAvoidingView */}
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-              {error ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: C.alertBg, padding: 12, borderRadius: 10, marginBottom: 16, gap: 8, borderWidth: 1, borderColor: C.danger + '40' }}>
-                  <Ionicons name="alert-circle" size={16} color={C.danger} />
-                  <Text style={{ color: C.danger, fontSize: 13, flex: 1 }}>{error}</Text>
-                </View>
-              ) : null}
+            {/* Card */}
+            <View style={{ backgroundColor: C.card, borderRadius: 20, padding: 24, borderWidth: 1, borderColor: C.border }}>
 
-              {mode === 'register' && (
+              {/* Tab switcher */}
+              <View style={{ flexDirection: 'row', backgroundColor: C.inputBg, borderRadius: 12, padding: 4, marginBottom: 24 }}>
+                {(['login', 'register'] as Mode[]).map((m) => (
+                  <TouchableOpacity
+                    key={m}
+                    style={{ flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', backgroundColor: mode === m ? C.primary : 'transparent' }}
+                    onPress={() => { setMode(m); setError(''); }}
+                  >
+                    <Text style={{ color: mode === m ? '#fff' : C.muted, fontWeight: '700', fontSize: 14 }}>
+                      {m === 'login' ? 'Sign In' : 'Register'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* User Credential Fields --> KeyboardAvoidingView */}
+              <View>
+                {error ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: C.alertBg, padding: 12, borderRadius: 10, marginBottom: 16, gap: 8, borderWidth: 1, borderColor: C.danger + '40' }}>
+                    <Ionicons name="alert-circle" size={16} color={C.danger} />
+                    <Text style={{ color: C.danger, fontSize: 13, flex: 1 }}>{error}</Text>
+                  </View>
+                ) : null}
+
+                {mode === 'register' && (
+                  <View style={{ marginBottom: 14 }}>
+                    <Text style={{ fontSize: 12, color: C.muted, marginBottom: 8, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }}>Full Name</Text>
+                    <TextInput
+                      style={inputStyle}
+                      placeholder="Juan Dela Cruz"
+                      placeholderTextColor={C.muted}
+                      value={form.name}
+                      onChangeText={set('name')}
+                      autoCapitalize="words"
+                    />
+                  </View>
+                )}
+
                 <View style={{ marginBottom: 14 }}>
-                  <Text style={{ fontSize: 12, color: C.muted, marginBottom: 8, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }}>Full Name</Text>
+                  <Text style={{ fontSize: 12, color: C.muted, marginBottom: 8, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }}>Email</Text>
                   <TextInput
                     style={inputStyle}
-                    placeholder="Juan Dela Cruz"
+                    placeholder="you@email.com"
                     placeholderTextColor={C.muted}
-                    value={form.name}
-                    onChangeText={set('name')}
-                    autoCapitalize="words"
-                  />
-                </View>
-              )}
-
-              <View style={{ marginBottom: 14 }}>
-                <Text style={{ fontSize: 12, color: C.muted, marginBottom: 8, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }}>Email</Text>
-                <TextInput
-                  style={inputStyle}
-                  placeholder="you@email.com"
-                  placeholderTextColor={C.muted}
-                  value={form.email}
-                  onChangeText={set('email')}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-              </View>
-
-              <View style={{ marginBottom: 24 }}>
-                <Text style={{ fontSize: 12, color: C.muted, marginBottom: 8, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }}>Password</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <TextInput
-                    style={[inputStyle, { flex: 1 }]}
-                    placeholder="Min. 8 characters"
-                    placeholderTextColor={C.muted}
-                    value={form.password}
-                    onChangeText={set('password')}
-                    secureTextEntry={!showPass}
+                    value={form.email}
+                    onChangeText={set('email')}
+                    keyboardType="email-address"
                     autoCapitalize="none"
+                    autoCorrect={false}
                   />
-                  <TouchableOpacity
-                    onPress={() => setShowPass((v) => !v)}
-                    style={{ padding: 14, backgroundColor: C.inputBg, borderWidth: 1, borderColor: C.border, borderRadius: 12 }}
-                  >
-                    <Ionicons name={showPass ? 'eye-off' : 'eye'} size={20} color={C.muted} />
-                  </TouchableOpacity>
                 </View>
+
+                <View style={{ marginBottom: 24 }}>
+                  <Text style={{ fontSize: 12, color: C.muted, marginBottom: 8, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }}>Password</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <TextInput
+                      style={[inputStyle, { flex: 1 }]}
+                      placeholder="Min. 8 characters"
+                      placeholderTextColor={C.muted}
+                      value={form.password}
+                      onChangeText={set('password')}
+                      secureTextEntry={!showPass}
+                      autoCapitalize="none"
+                    />
+                    <TouchableOpacity
+                      onPress={() => setShowPass((v) => !v)}
+                      style={{ padding: 14, backgroundColor: C.inputBg, borderWidth: 1, borderColor: C.border, borderRadius: 12 }}
+                    >
+                      <Ionicons name={showPass ? 'eye-off' : 'eye'} size={20} color={C.muted} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={{ backgroundColor: C.primary, borderRadius: 14, paddingVertical: 16, alignItems: 'center' }}
+                  onPress={handleSubmit}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>
+                      {mode === 'login' ? 'Sign In' : 'Create Account'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
               </View>
+            </View>
 
-              <TouchableOpacity
-                style={{ backgroundColor: C.primary, borderRadius: 14, paddingVertical: 16, alignItems: 'center' }}
-                onPress={handleSubmit}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>
-                    {mode === 'login' ? 'Sign In' : 'Create Account'}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </KeyboardAvoidingView>
-          </View>
-
-          <Text style={{ color: C.muted, textAlign: 'center', fontSize: 11, marginTop: 28 }}>
-            Powered by ESP32 · ISO/IEC 25010
-          </Text>
-        </ScrollView>
+            <Text style={{ color: C.muted, textAlign: 'center', fontSize: 11, marginTop: 28 }}>
+              Powered by ESP32 · ISO/IEC 25010
+            </Text>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </PagerView>
 
       {/* Connection Method Selection Modal */}
       <Modal visible={showMethodModal} transparent animationType="slide">
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end', bottom: insets.bottom }}>
           <View style={{ backgroundColor: C.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, borderWidth: 1, borderColor: C.border }}>
             <Text style={{ fontSize: 20, fontWeight: '800', color: C.text, marginBottom: 8 }}>Connect to Device</Text>
             
@@ -351,15 +360,15 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
 
       {/* Theme toggle */}
-      <TouchableOpacity onPress={toggleTheme} className='absolute w-16 h-16 rounded-full top-6 right-6 items-center justify-center' style={{
-        backgroundColor: C.card, borderWidth: 1, borderColor: C.border
+      <TouchableOpacity onPress={toggleTheme} className='absolute w-16 h-16 rounded-full right-6 items-center justify-center' style={{
+        backgroundColor: C.card, borderWidth: 1, borderColor: C.border, top:insets.top
       }}>
         <Ionicons name={isDark ? 'sunny-outline' : 'moon-outline'} size={20} color={C.muted} />
       </TouchableOpacity>
       
       {/* Go Back (ONLY decrements page index number) */}
       { (currentPage > 0) && (
-        <Animated.View entering={ FadeIn.duration(200) } exiting={ FadeOut.duration(200) } className='absolute top-6 left-6 z-10'>
+        <Animated.View entering={ FadeIn.duration(200) } exiting={ FadeOut.duration(200) } className='absolute top-6 left-6 z-10' style={{top: insets.top}}>
           <TouchableOpacity onPress={() => {if (currentPage > 0) goToPage(currentPage - 1)}}
             className=' w-16 h-16 rounded-full items-center justify-center'
             style={{ backgroundColor: C.card, borderWidth: 1, borderColor: C.border }}
